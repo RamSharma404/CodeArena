@@ -1,0 +1,151 @@
+/* ═══════════════════════════════════════════════════════════
+   Submissions Page
+   ═══════════════════════════════════════════════════════════ */
+
+.submissions-page {
+  padding-top: 40px;
+  padding-bottom: 60px;
+  min-height: calc(100vh - 60px);
+}
+
+.submissions-header {
+  margin-bottom: 32px;
+}
+
+.submissions-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-bright);
+  letter-spacing: -0.02em;
+}
+
+.submissions-subtitle {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.submissions-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 80px 24px;
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+/* ── Submission Cards ── */
+.submissions-list-full {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.submission-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: all var(--transition-fast);
+  animation: fadeIn 0.4s ease forwards;
+  opacity: 0;
+}
+
+.submission-card:hover {
+  border-color: var(--border-strong);
+}
+
+.submission-card.expanded {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+
+.submission-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  cursor: pointer;
+  gap: 16px;
+}
+
+.submission-card-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.submission-problem-id {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.submission-card-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.submission-card-lang {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  padding: 2px 10px;
+  background: var(--bg-elevated);
+  border-radius: 4px;
+}
+
+.submission-card-metric {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.submission-card-date {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.expand-icon {
+  transition: transform var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.expand-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.submission-card-code {
+  border-top: 1px solid var(--border);
+  padding: 16px 20px;
+  background: var(--bg-secondary);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.submission-card-code pre {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .submission-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .submission-card-right {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .submission-card-date {
+    margin-left: 0;
+  }
+}
