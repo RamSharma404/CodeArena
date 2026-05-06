@@ -15,12 +15,12 @@ const LANG_MAP = {
 export default function SubmissionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+
 
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [polling, setPolling] = useState(false);
+  const [, setPolling] = useState(false);
 
   // AI Review
   const [reviewing, setReviewing] = useState(false);

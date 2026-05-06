@@ -120,7 +120,6 @@ export default function ProblemSolver() {
           setLeftWidth(newLeftWidth);
         }
       } else if (isResizing === 'horizontal') {
-        const rect = page.getBoundingClientRect();
         const rightPanel = page.querySelector('.solver-right');
         if (rightPanel) {
           const rightRect = rightPanel.getBoundingClientRect();

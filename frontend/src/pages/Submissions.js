@@ -23,12 +23,7 @@ export default function Submissions() {
     fetchSubmissions();
   }, []);
 
-  const getStatusColor = (status) => {
-    if (!status) return '';
-    const s = status.toUpperCase();
-    if (s === 'ACCEPTED') return 'var(--success)';
-    return 'var(--danger)';
-  };
+
 
   const getStatusBadgeClass = (status) => {
     if (!status) return '';
