@@ -264,39 +264,12 @@ public class SubmissionWorker {
 
             // ── JAVA ─────────────────────────────────────────────────────────
             case "java": {
-                // Replace:
-                //   public static void main(String[] args) { ... }
-                // with a loop that reads blocks separated by TC_SENTINEL.
-                // We inject a helper that overrides Scanner to use a StringReader
-                // for each block.
-                String javaWrapper = """
-// ═══════════════ BATCH HARNESS ═══════════════
-import java.io.*;
-import java.util.*;
+                // Strategy: rebuild class Main in-place with a batch loop.
+                // Key constraints of the OnlineCompiler API:
+                //   1. Must NOT use "throws Exception" on main()
+                //   2. Must use "class Main" (not a custom name)
 
-public class __BatchRunner__ {
-    static final String SENTINEL = "---TC---";
-    public static void main(String[] args) throws Exception {
-        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-        int n = Integer.parseInt(br.readLine().trim());
-        for (int __t__ = 0; __t__ < n; __t__++) {
-            // Collect lines for this test case
-            StringBuilder __block__ = new StringBuilder();
-            String __ln__;
-            while ((__ln__ = br.readLine()) != null) {
-                if (__ln__.equals(SENTINEL)) break;
-                if (__block__.length() > 0) __block__.append("\\n");
-                __block__.append(__ln__);
-            }
-            // Run the original driver logic on this block
-            __runOne__(__block__.toString());
-            if (__t__ < n - 1) System.out.print(SENTINEL);
-        }
-    }
-    static void __runOne__(String __input__) {
-        Scanner sc = new Scanner(__input__);
-""";
-                // Extract all imports from driverCode
+                // 1. Extract all imports from driverCode
                 StringBuilder imports = new StringBuilder();
                 StringBuilder restOfCode = new StringBuilder();
                 for (String line : driverCode.split("\n")) {
@@ -306,12 +279,45 @@ public class __BatchRunner__ {
                         restOfCode.append(line).append("\n");
                     }
                 }
-                
+
                 String cleanDriverCode = restOfCode.toString();
+
+                // 2. Extract the body of original main()
                 String mainBody = extractJavaMainBody(cleanDriverCode);
-                String stripped = removeJavaMain(cleanDriverCode);
-                
-                return imports.toString() + javaWrapper + mainBody + "\n    }\n}\n" + stripped;
+
+                // 3. Strip the entire original Main class (not just main method)
+                String stripped = removeJavaClass(cleanDriverCode, "Main");
+
+                // 4. Build a new Main class with the batch harness
+                String batchMain = """
+class Main {
+    static final String SENTINEL = "---TC---";
+    public static void main(String[] args) {
+        try {
+            java.io.BufferedReader br = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(System.in));
+            int n = Integer.parseInt(br.readLine().trim());
+            for (int __t__ = 0; __t__ < n; __t__++) {
+                StringBuilder __block__ = new StringBuilder();
+                String __ln__;
+                while ((__ln__ = br.readLine()) != null) {
+                    if (__ln__.equals(SENTINEL)) break;
+                    if (__block__.length() > 0) __block__.append("\\n");
+                    __block__.append(__ln__);
+                }
+                __runOne__(__block__.toString());
+                if (__t__ < n - 1) System.out.print(SENTINEL);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    static void __runOne__(String __input__) {
+        java.util.Scanner sc = new java.util.Scanner(__input__);
+""";
+                return imports.toString()
+                        + "import java.io.*;\nimport java.util.*;\n\n"
+                        + batchMain + mainBody + "\n    }\n}\n" + stripped;
             }
 
             // ── PYTHON ───────────────────────────────────────────────────────
@@ -467,6 +473,28 @@ function __runOne__(__input__) {
             i++;
         }
         return code.substring(0, start) + code.substring(i);
+    }
+
+    /** Removes an entire class declaration (by name) from the code. */
+    private String removeJavaClass(String code, String className) {
+        // Match "class ClassName" (with optional "public" prefix)
+        int idx = code.indexOf("class " + className);
+        if (idx < 0) return code;
+        // Walk back to capture "public " if present
+        int classStart = idx;
+        if (idx > 7 && code.substring(idx - 7, idx).trim().equals("public"))
+            classStart = idx - 7;
+        // Find opening brace
+        int open = code.indexOf('{', idx);
+        if (open < 0) return code;
+        int depth = 1, i = open + 1;
+        while (i < code.length() && depth > 0) {
+            char c = code.charAt(i);
+            if (c == '{') depth++;
+            else if (c == '}') depth--;
+            i++;
+        }
+        return code.substring(0, classStart) + code.substring(i);
     }
 
     // ── C++ extraction helpers ────────────────────────────────────────
