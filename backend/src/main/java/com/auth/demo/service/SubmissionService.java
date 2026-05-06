@@ -256,15 +256,15 @@ public class SubmissionService {
     }
 
     /**
-     * Strips class wrappers like "class Solution { ... }" from user code
-     * so it can be safely injected into the driver template.
-     * Users can write code with or without the wrapper — both will work.
+     * Cleans up user code before injection into the driver template.
+     * For Java: removes import/package statements (driver already has them)
+     *           but KEEPS the class wrapper intact (driver expects full class).
      */
     public static String sanitizeUserCode(String code, String language) {
         if (code == null) return "";
         String trimmed = code.trim();
 
-        // Only apply to Java (other languages don't have this issue)
+        // Only special handling for Java
         if (!"JAVA".equalsIgnoreCase(language)) return trimmed;
 
         // Remove import statements (driver template already has imports)
@@ -272,27 +272,6 @@ public class SubmissionService {
 
         // Remove package declarations
         trimmed = trimmed.replaceAll("(?m)^\\s*package\\s+[\\w.]+;\\s*$", "").trim();
-
-        // Match patterns like: class Solution { ... }
-        // or: public class Solution { ... }
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
-                "^\\s*(public\\s+)?class\\s+\\w+\\s*\\{",
-                java.util.regex.Pattern.MULTILINE
-        );
-        java.util.regex.Matcher matcher = pattern.matcher(trimmed);
-
-        if (matcher.find()) {
-            // Remove the class declaration line
-            String withoutClassDecl = trimmed.substring(matcher.end());
-
-            // Remove the matching closing brace (last '}' in the code)
-            int lastBrace = withoutClassDecl.lastIndexOf('}');
-            if (lastBrace >= 0) {
-                withoutClassDecl = withoutClassDecl.substring(0, lastBrace);
-            }
-
-            return withoutClassDecl.trim();
-        }
 
         return trimmed;
     }

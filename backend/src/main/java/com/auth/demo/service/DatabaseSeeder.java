@@ -35,10 +35,6 @@ public class DatabaseSeeder {
         // Only seed if enabled in properties
         // AND no problems exist yet
         if (!seedProblems) return;
-        if (problemRepository.count() > 0) {
-            System.out.println("Problems already seeded — skipping");
-            return;
-        }
 
         try {
             System.out.println("Seeding problems from JSON...");
@@ -69,69 +65,80 @@ public class DatabaseSeeder {
     private void seedOneProblem(Map<String, Object> p) {
         String slug = (String) p.get("slug");
 
-        // Skip if already exists
-        if (problemRepository.findBySlug(slug).isPresent()) {
-            System.out.println("Skipping " + slug + " — already exists");
-            return;
-        }
+        Problem problem = problemRepository.findBySlug(slug).orElse(null);
 
-        // Save problem
-        Problem problem = Problem.builder()
-                .title((String) p.get("title"))
-                .slug(slug)
-                .description((String) p.get("description"))
-                .difficulty(Problem.Difficulty.valueOf(
-                        (String) p.get("difficulty")))
-                .topicTags((String) p.get("topicTags"))
-                .companyTags((String) p.get("companyTags"))
-                .build();
-        problemRepository.save(problem);
+        if (problem == null) {
+            // Save problem
+            problem = Problem.builder()
+                    .title((String) p.get("title"))
+                    .slug(slug)
+                    .description((String) p.get("description"))
+                    .difficulty(Problem.Difficulty.valueOf(
+                            (String) p.get("difficulty")))
+                    .topicTags((String) p.get("topicTags"))
+                    .companyTags((String) p.get("companyTags"))
+                    .build();
+            problemRepository.save(problem);
 
-        // Save test cases
-        List<Map<String, Object>> testCases =
-                (List<Map<String, Object>>) p.get("testCases");
-        if (testCases != null) {
-            for (Map<String, Object> tc : testCases) {
-                TestCase testCase = TestCase.builder()
-                        .problemId(problem.getId())
-                        .input((String) tc.get("input"))
-                        .output((String) tc.get("output"))
-                        .isHidden((Boolean) tc.get("hidden"))
-                        .build();
-                testCaseRepository.save(testCase);
+            // Save test cases ONLY for new problems
+            List<Map<String, Object>> testCases =
+                    (List<Map<String, Object>>) p.get("testCases");
+            if (testCases != null) {
+                for (Map<String, Object> tc : testCases) {
+                    TestCase testCase = TestCase.builder()
+                            .problemId(problem.getId())
+                            .input((String) tc.get("input"))
+                            .output((String) tc.get("output"))
+                            .isHidden((Boolean) tc.get("hidden"))
+                            .build();
+                    testCaseRepository.save(testCase);
+                }
             }
         }
 
+
         // Save Python template
         if (p.get("pythonTemplate") != null) {
-            templateRepository.save(ProblemTemplate.builder()
+            Optional<ProblemTemplate> ptOpt = templateRepository.findByProblemIdAndLanguage(problem.getId(), "PYTHON");
+            ProblemTemplate pt = ptOpt.orElse(ProblemTemplate.builder()
                     .problemId(problem.getId())
                     .language("PYTHON")
-                    .userTemplate((String) p.get("pythonTemplate"))
-                    .driverCode((String) p.get("pythonDriver"))
                     .build());
+            pt.setUserTemplate((String) p.get("pythonTemplate"));
+            pt.setDriverCode((String) p.get("pythonDriver"));
+            templateRepository.save(pt);
         }
 
         // Save Java template
         if (p.get("javaTemplate") != null) {
-            templateRepository.save(ProblemTemplate.builder()
+            Optional<ProblemTemplate> jtOpt = templateRepository.findByProblemIdAndLanguage(problem.getId(), "JAVA");
+            ProblemTemplate jt = jtOpt.orElse(ProblemTemplate.builder()
                     .problemId(problem.getId())
                     .language("JAVA")
-                    .userTemplate((String) p.get("javaTemplate"))
-                    .driverCode((String) p.get("javaDriver"))
                     .build());
+            // Force LeetCode style Java templates
+            if ("two-sum".equals(slug)) {
+                jt.setUserTemplate("class Solution {\n    public int[] twoSum(int[] nums, int target) {\n        // Write your solution here\n        return new int[]{};\n    }\n}");
+                jt.setDriverCode("import java.util.*;\n\nclass Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        String line = sc.nextLine().trim();\n        int[] nums = Arrays.stream(line.split(\" \")).mapToInt(Integer::parseInt).toArray();\n        int target = Integer.parseInt(sc.nextLine().trim());\n        Solution sol = new Solution();\n        int[] r = sol.twoSum(nums, target);\n        System.out.println(r[0] + \" \" + r[1]);\n    }\n}\n\n{{USER_CODE}}");
+            } else {
+                jt.setUserTemplate((String) p.get("javaTemplate"));
+                jt.setDriverCode((String) p.get("javaDriver"));
+            }
+            templateRepository.save(jt);
         }
 
         // Save C++ template
         if (p.get("cppTemplate") != null) {
-            templateRepository.save(ProblemTemplate.builder()
+            Optional<ProblemTemplate> ctOpt = templateRepository.findByProblemIdAndLanguage(problem.getId(), "CPP");
+            ProblemTemplate ct = ctOpt.orElse(ProblemTemplate.builder()
                     .problemId(problem.getId())
                     .language("CPP")
-                    .userTemplate((String) p.get("cppTemplate"))
-                    .driverCode((String) p.get("cppDriver"))
                     .build());
+            ct.setUserTemplate((String) p.get("cppTemplate"));
+            ct.setDriverCode((String) p.get("cppDriver"));
+            templateRepository.save(ct);
         }
 
-        System.out.println("Seeded: " + problem.getTitle());
+        System.out.println("Updated templates for: " + problem.getTitle());
     }
 }
