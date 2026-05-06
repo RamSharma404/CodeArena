@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import { useAuth } from '../context/AuthContext';
+
 import API from '../api/axios';
 import './SubmissionDetail.css';
 
