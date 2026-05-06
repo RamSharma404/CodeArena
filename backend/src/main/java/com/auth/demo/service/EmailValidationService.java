@@ -28,13 +28,13 @@ public class EmailValidationService {
             if (response != null
                     && response.getIsDisposableEmail() != null
                     && response.getIsDisposableEmail().getValue()) {
-                throw new RuntimeException(
+                throw new IllegalArgumentException(
                         "Disposable/temporary email addresses are not allowed."
                 );
             }
 
-        } catch (RuntimeException e) {
-            throw e;
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException(e.getMessage());
         } catch (Exception e) {
             // If API is down — allow the email
             System.out.println("Email validation API unavailable: " + e.getMessage());
