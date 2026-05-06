@@ -8,36 +8,33 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Service
 public class EmailService {
 
-    @Value("${brevo.api.key:}")
-    private String brevoApiKey;
+    @Value("${emailjs.service.id:}")
+    private String serviceId;
 
-    @Value("${spring.mail.username}")
-    private String senderEmail;
+    @Value("${emailjs.template.id:}")
+    private String templateId;
+
+    @Value("${emailjs.public.key:}")
+    private String publicKey;
+
+    @Value("${emailjs.private.key:}")
+    private String privateKey;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
     public void sendVerificationOtp(String toEmail, String otp) {
         logOtp("OTP", toEmail, otp);
-
-        String subject = "CodeArena - Email Verification OTP";
-        String htmlContent = "<p>Hello,</p><p>Your OTP for email verification is: <strong>" + otp + "</strong></p><p>This OTP expires in 10 minutes.</p>";
-        
-        sendViaBrevo(toEmail, subject, htmlContent);
+        sendViaEmailJs(toEmail, otp);
     }
 
     public void sendPasswordResetOtp(String toEmail, String otp) {
         logOtp("Reset OTP", toEmail, otp);
-
-        String subject = "CodeArena - Password Reset OTP";
-        String htmlContent = "<p>Hello,</p><p>Your OTP for password reset is: <strong>" + otp + "</strong></p><p>This OTP expires in 10 minutes.</p>";
-        
-        sendViaBrevo(toEmail, subject, htmlContent);
+        sendViaEmailJs(toEmail, otp);
     }
 
     private void logOtp(String type, String toEmail, String otp) {
@@ -46,9 +43,9 @@ public class EmailService {
         System.out.println("==============================================\n");
     }
 
-    private void sendViaBrevo(String toEmail, String subject, String htmlContent) {
-        if (brevoApiKey == null || brevoApiKey.isEmpty()) {
-            System.out.println("Brevo API Key not set. Email not sent.");
+    private void sendViaEmailJs(String toEmail, String otp) {
+        if (serviceId == null || serviceId.isEmpty()) {
+            System.out.println("EmailJS keys not set. Email not sent.");
             return;
         }
 
@@ -56,19 +53,23 @@ public class EmailService {
             try {
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
-                headers.set("api-key", brevoApiKey);
+
+                Map<String, Object> templateParams = new HashMap<>();
+                templateParams.put("to_email", toEmail);
+                templateParams.put("otp", otp);
 
                 Map<String, Object> body = new HashMap<>();
-                body.put("sender", Map.of("name", "CodeArena", "email", senderEmail));
-                body.put("to", List.of(Map.of("email", toEmail)));
-                body.put("subject", subject);
-                body.put("htmlContent", htmlContent);
+                body.put("service_id", serviceId);
+                body.put("template_id", templateId);
+                body.put("user_id", publicKey);
+                body.put("accessToken", privateKey);
+                body.put("template_params", templateParams);
 
                 HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-                restTemplate.postForEntity("https://api.brevo.com/v3/smtp/email", request, String.class);
-                System.out.println("✅ Email sent successfully via Brevo API");
+                restTemplate.postForEntity("https://api.emailjs.com/api/v1.0/email/send", request, String.class);
+                System.out.println("✅ Email sent successfully via EmailJS API");
             } catch (Exception e) {
-                System.out.println("❌ Failed to send email via Brevo API: " + e.getMessage());
+                System.out.println("❌ Failed to send email via EmailJS API: " + e.getMessage());
             }
         }).start();
     }
