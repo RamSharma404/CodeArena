@@ -4,94 +4,239 @@ import com.auth.demo.dto.ExecutionDto;
 import com.auth.demo.model.*;
 import com.auth.demo.repository.*;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 public class SubmissionService {
 
-    private final Judge0Service             judge0Service;
     private final SubmissionRepository      submissionRepository;
-    private final TestCaseRepository        testCaseRepository;
     private final ProblemRepository         problemRepository;
-    private final UserProblemRepository     userProblemRepository;
+    private final SubmissionQueueService    queueService;
+    private final Judge0Service             judge0Service;
+    private final TestCaseRepository        testCaseRepository;
     private final ProblemTemplateRepository templateRepository;
+    private final UserProblemRepository     userProblemRepository;
+    private final RankingService            rankingService;
 
-    public SubmissionService(Judge0Service judge0Service,
-                             SubmissionRepository submissionRepository,
-                             TestCaseRepository testCaseRepository,
-                             ProblemRepository problemRepository,
-                             UserProblemRepository userProblemRepository,
-                             ProblemTemplateRepository templateRepository) {
-        this.judge0Service         = judge0Service;
+    public SubmissionService(
+            SubmissionRepository submissionRepository,
+            ProblemRepository problemRepository,
+            SubmissionQueueService queueService,
+            Judge0Service judge0Service,
+            TestCaseRepository testCaseRepository,
+            ProblemTemplateRepository templateRepository,
+            UserProblemRepository userProblemRepository,
+            RankingService rankingService) {
         this.submissionRepository  = submissionRepository;
-        this.testCaseRepository    = testCaseRepository;
         this.problemRepository     = problemRepository;
-        this.userProblemRepository = userProblemRepository;
+        this.queueService          = queueService;
+        this.judge0Service         = judge0Service;
+        this.testCaseRepository    = testCaseRepository;
         this.templateRepository    = templateRepository;
+        this.userProblemRepository = userProblemRepository;
+        this.rankingService        = rankingService;
     }
 
-    private String buildFullCode(String userCode, String driverCode) {
-        return driverCode.replace("{{USER_CODE}}", userCode);
+    // ─── SUBMIT — saves as PENDING and queues ─────────────────
+    public ExecutionDto.SubmitResponse submitSolution(
+            Long userId, Long problemId,
+            String code, String language) {
+
+        problemRepository.findById(problemId)
+                .orElseThrow(() -> new RuntimeException("Problem not found"));
+
+        Submission submission = Submission.builder()
+                .userId(userId)
+                .problemId(problemId)
+                .code(code)
+                .language(language.toUpperCase())
+                .status(Submission.Status.PENDING)
+                .build();
+        submissionRepository.save(submission);
+
+        queueService.pushToQueue(submission.getId());
+
+        return ExecutionDto.SubmitResponse.builder()
+                .submissionId(submission.getId())
+                .status("PENDING")
+                .message("Submission received. Processing...")
+                .build();
     }
 
-    private String normalizeOutput(String output) {
-        if (output == null) return "";
-        return output.trim()
-                .replaceAll("\\r\\n", "\n")
-                .replaceAll("[ \\t]+\\n", "\n")
-                .replaceAll("\\n+$", "");
+    // ─── GET RESULT — frontend polls this ─────────────────────
+    public ExecutionDto.SubmissionResult getSubmissionResult(
+            Long submissionId, Long userId) {
+
+        Submission submission = submissionRepository
+                .findById(submissionId)
+                .orElseThrow(() -> new RuntimeException("Submission not found"));
+
+        // Get ranking only if ACCEPTED
+        Map<String, Object> ranking = null;
+        if (submission.getStatus() == Submission.Status.ACCEPTED) {
+            ranking = rankingService.getRanking(
+                    submission.getProblemId(),
+                    submission.getRuntimeMs(),
+                    submission.getLanguage());
+        }
+
+        // Build submission history
+        List<ExecutionDto.SubmissionHistoryItem> history = submissionRepository
+                .findByUserIdAndProblemIdOrderBySubmittedAtDesc(
+                        userId, submission.getProblemId())
+                .stream()
+                .map(s -> ExecutionDto.SubmissionHistoryItem.builder()
+                        .id(s.getId())
+                        .status(s.getStatus().name())
+                        .language(s.getLanguage())
+                        .runtimeMs(s.getRuntimeMs())
+                        .submittedAt(s.getSubmittedAt())
+                        .build())
+                .collect(Collectors.toList());
+
+        return ExecutionDto.SubmissionResult.builder()
+                .submissionId(submission.getId())
+                .problemId(submission.getProblemId())
+                .status(submission.getStatus().name())
+                .code(submission.getCode())
+                .language(submission.getLanguage())
+                .runtimeMs(submission.getRuntimeMs())
+                .totalTestCases(submission.getTotalTestCases())
+                .passedTestCases(submission.getPassedTestCases())
+                .failedInput(submission.getFailedInput())
+                .failedExpectedOutput(submission.getFailedExpected())
+                .failedActualOutput(submission.getFailedActual())
+                .error(submission.getErrorMessage())
+                .ranking(ranking)
+                .submissionHistory(history)
+                .build();
     }
 
-    // ─── RUN CODE (custom input, not saved) ───────────────────
+    // ─── RUN CODE — runs against all visible test cases ───────
     public ExecutionDto.RunResponse runCode(
             ExecutionDto.RunRequest request, Long userId) {
         try {
-            long startTime = System.currentTimeMillis();
+            long overallStart = System.currentTimeMillis();
 
-            String fullCode = request.getCode();
+            // Get the code template
+            String userCode = request.getCode();
             Optional<ProblemTemplate> template = templateRepository
                     .findByProblemIdAndLanguage(
                             request.getProblemId(),
                             request.getLanguage().toUpperCase());
+
+            String fullCode = userCode;
             if (template.isPresent()) {
-                fullCode = buildFullCode(
-                        request.getCode(),
-                        template.get().getDriverCode());
+                fullCode = template.get().getDriverCode()
+                        .replace("{{USER_CODE}}", sanitizeUserCode(userCode, request.getLanguage()));
             }
 
-            Judge0Service.PistonResult result;
-            String input = request.getCustomInput();
-            if (input == null || input.trim().isEmpty()) {
-                List<TestCase> testCases = testCaseRepository.findByProblemId(request.getProblemId());
-                if (!testCases.isEmpty()) {
-                    input = testCases.get(0).getInput();
+            // Get visible test cases
+            List<TestCase> testCases = testCaseRepository
+                    .findByProblemIdAndIsHidden(request.getProblemId(), false);
+
+            if (testCases.isEmpty()) {
+                return ExecutionDto.RunResponse.builder()
+                        .status("ERROR")
+                        .error("No test cases available")
+                        .build();
+            }
+
+            List<ExecutionDto.TestCaseResult> results = new ArrayList<>();
+            String overallStatus = "ACCEPTED";
+            String overallError  = null;
+            int passed = 0;
+
+            for (int i = 0; i < testCases.size(); i++) {
+                TestCase tc = testCases.get(i);
+                try {
+                    Judge0Service.PistonResult result = judge0Service.executeCode(
+                            fullCode,
+                            request.getLanguage(),
+                            tc.getInput());
+
+                    String status = judge0Service.mapStatus(result);
+
+                    // Handle compile/runtime errors — stop immediately
+                    if ("COMPILE_ERROR".equals(status) ||
+                            "TIME_LIMIT".equals(status) ||
+                            "RUNTIME_ERROR".equals(status)) {
+
+                        String error = result.getRun() != null
+                                ? result.getRun().getStderr() : null;
+                        if (error != null) error = error.trim();
+                        if (error != null && error.isEmpty()) error = null;
+
+                        overallStatus = status;
+                        overallError  = error;
+
+                        results.add(ExecutionDto.TestCaseResult.builder()
+                                .testCaseIndex(i + 1)
+                                .input(tc.getInput())
+                                .expectedOutput(tc.getOutput() != null ? tc.getOutput().trim() : "")
+                                .actualOutput("")
+                                .passed(false)
+                                .error(error)
+                                .build());
+                        break;
+                    }
+
+                    // Get actual output
+                    String actual = result.getRun() != null
+                            && result.getRun().getStdout() != null
+                            ? result.getRun().getStdout().trim() : "";
+
+                    String expected = tc.getOutput() != null
+                            ? tc.getOutput().trim() : "";
+
+                    boolean tcPassed = normalize(actual).equals(normalize(expected));
+                    if (tcPassed) {
+                        passed++;
+                    } else if ("ACCEPTED".equals(overallStatus)) {
+                        overallStatus = "WRONG_ANSWER";
+                    }
+
+                    results.add(ExecutionDto.TestCaseResult.builder()
+                            .testCaseIndex(i + 1)
+                            .input(tc.getInput())
+                            .expectedOutput(expected)
+                            .actualOutput(actual)
+                            .passed(tcPassed)
+                            .error(null)
+                            .build());
+
+                    // Small delay between API calls to avoid rate limiting
+                    if (i < testCases.size() - 1) {
+                        Thread.sleep(500);
+                    }
+                } catch (Exception e) {
+                    overallStatus = "RUNTIME_ERROR";
+                    overallError  = e.getMessage();
+                    results.add(ExecutionDto.TestCaseResult.builder()
+                            .testCaseIndex(i + 1)
+                            .input(tc.getInput())
+                            .expectedOutput(tc.getOutput() != null ? tc.getOutput().trim() : "")
+                            .actualOutput("")
+                            .passed(false)
+                            .error(e.getMessage())
+                            .build());
+                    break;
                 }
             }
 
-            result = judge0Service.executeCode(fullCode, request.getLanguage(), input);
-
-            long   runtimeMs = System.currentTimeMillis() - startTime;
-            String status    = judge0Service.mapStatus(result);
-
-            String output = null;
-            String error  = null;
-            if (result.getRun() != null) {
-                output = result.getRun().getStdout();
-                error  = result.getRun().getStderr();
-                if (output != null) output = output.trim();
-                if (error  != null) error  = error.trim();
-                if (error  != null && error.isEmpty()) error = null;
-            }
+            long totalRuntime = System.currentTimeMillis() - overallStart;
 
             return ExecutionDto.RunResponse.builder()
-                    .status(status)
-                    .output(output)
-                    .error(error)
-                    .runtimeMs((int) runtimeMs)
+                    .status(overallStatus)
+                    .error(overallError)
+                    .runtimeMs((int) totalRuntime)
+                    .passedCount(passed)
+                    .totalCount(testCases.size())
+                    .testCaseResults(results)
                     .build();
 
         } catch (Exception e) {
@@ -102,111 +247,59 @@ public class SubmissionService {
         }
     }
 
-    // ─── SUBMIT CODE ──────────────────────────────────────────
-    // Returns status + test results + submission history
-    // Does NOT call AI — user triggers that separately
-    @Transactional
-    public ExecutionDto.SubmitResponse submitSolution(
-            Long userId, Long problemId,
-            String code, String language) {
-
-        Problem problem = problemRepository.findById(problemId)
-                .orElseThrow(() -> new RuntimeException("Problem not found"));
-
-        List<TestCase> testCases = testCaseRepository
-                .findByProblemId(problemId);
-        if (testCases.isEmpty())
-            throw new RuntimeException("No test cases found");
-
-        Optional<ProblemTemplate> template = templateRepository
-                .findByProblemIdAndLanguage(problemId, language.toUpperCase());
-
-        int    total          = testCases.size();
-        int    passed         = 0;
-        String finalStatus    = "ACCEPTED";
-        String failedInput    = null;
-        String failedExpected = null;
-        String failedActual   = null;
-        String error          = null;
-        long   totalRuntime   = 0;
-
-        for (TestCase testCase : testCases) {
-            try {
-                long startTime = System.currentTimeMillis();
-
-                String codeToRun = template.isPresent()
-                        ? buildFullCode(code, template.get().getDriverCode())
-                        : code;
-
-                Judge0Service.PistonResult result = judge0Service.executeCode(
-                        codeToRun, language, testCase.getInput());
-
-                totalRuntime += System.currentTimeMillis() - startTime;
-                String status = judge0Service.mapStatus(result);
-
-                if ("COMPILE_ERROR".equals(status) ||
-                        "TIME_LIMIT".equals(status) ||
-                        "RUNTIME_ERROR".equals(status)) {
-                    finalStatus = status;
-                    if (result.getRun() != null)
-                        error = result.getRun().getStderr();
-                    break;
-                }
-
-                String actualOutput   = result.getRun() != null
-                        && result.getRun().getStdout() != null
-                        ? normalizeOutput(result.getRun().getStdout()) : "";
-                String expectedOutput = normalizeOutput(testCase.getOutput());
-
-                if (actualOutput.equals(expectedOutput)) {
-                    passed++;
-                } else if ("ACCEPTED".equals(finalStatus)) {
-                    finalStatus    = "WRONG_ANSWER";
-                    failedInput    = testCase.getInput();
-                    failedExpected = expectedOutput;
-                    failedActual   = actualOutput;
-                }
-
-            } catch (Exception e) {
-                finalStatus = "RUNTIME_ERROR";
-                error       = e.getMessage();
-                break;
-            }
-        }
-
-        Integer avgRuntime = total > 0 ? (int)(totalRuntime / total) : null;
-
-        // Save submission
-        Submission submission = Submission.builder()
-                .userId(userId)
-                .problemId(problemId)
-                .code(code)
-                .language(language.toUpperCase())
-                .status(mapToEnum(finalStatus))
-                .runtimeMs(avgRuntime)
-                .memoryKb(0)
-                .build();
-        submissionRepository.save(submission);
-
-        updateUserProblemStatus(userId, problemId, finalStatus);
-
-
-
-        return ExecutionDto.SubmitResponse.builder()
-                .submissionId(submission.getId())
-                .status(finalStatus)
-                .runtimeMs(avgRuntime)
-                .totalTestCases(total)
-                .passedTestCases(passed)
-                .failedInput("ACCEPTED".equals(finalStatus) ? null : failedInput)
-                .failedExpectedOutput("ACCEPTED".equals(finalStatus) ? null : failedExpected)
-                .failedActualOutput("ACCEPTED".equals(finalStatus) ? null : failedActual)
-                .error(error)
-                .build();
+    private String normalize(String s) {
+        if (s == null) return "";
+        return s.trim()
+                .replaceAll("\\r\\n", "\n")
+                .replaceAll("[ \\t]+\\n", "\n")
+                .replaceAll("\\n+$", "");
     }
 
-    // ─── GET SUBMISSIONS ──────────────────────────────────────
-    public List<Submission> getSubmissions(Long userId, Long problemId) {
+    /**
+     * Strips class wrappers like "class Solution { ... }" from user code
+     * so it can be safely injected into the driver template.
+     * Users can write code with or without the wrapper — both will work.
+     */
+    public static String sanitizeUserCode(String code, String language) {
+        if (code == null) return "";
+        String trimmed = code.trim();
+
+        // Only apply to Java (other languages don't have this issue)
+        if (!"JAVA".equalsIgnoreCase(language)) return trimmed;
+
+        // Remove import statements (driver template already has imports)
+        trimmed = trimmed.replaceAll("(?m)^\\s*import\\s+[\\w.*]+;\\s*$", "").trim();
+
+        // Remove package declarations
+        trimmed = trimmed.replaceAll("(?m)^\\s*package\\s+[\\w.]+;\\s*$", "").trim();
+
+        // Match patterns like: class Solution { ... }
+        // or: public class Solution { ... }
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                "^\\s*(public\\s+)?class\\s+\\w+\\s*\\{",
+                java.util.regex.Pattern.MULTILINE
+        );
+        java.util.regex.Matcher matcher = pattern.matcher(trimmed);
+
+        if (matcher.find()) {
+            // Remove the class declaration line
+            String withoutClassDecl = trimmed.substring(matcher.end());
+
+            // Remove the matching closing brace (last '}' in the code)
+            int lastBrace = withoutClassDecl.lastIndexOf('}');
+            if (lastBrace >= 0) {
+                withoutClassDecl = withoutClassDecl.substring(0, lastBrace);
+            }
+
+            return withoutClassDecl.trim();
+        }
+
+        return trimmed;
+    }
+
+    // ─── GET SUBMISSIONS LIST ─────────────────────────────────
+    public List<Submission> getSubmissions(
+            Long userId, Long problemId) {
         if (problemId != null) {
             return submissionRepository
                     .findByUserIdAndProblemIdOrderBySubmittedAtDesc(
@@ -214,36 +307,5 @@ public class SubmissionService {
         }
         return submissionRepository
                 .findByUserIdOrderBySubmittedAtDesc(userId);
-    }
-
-    private Submission.Status mapToEnum(String status) {
-        return switch (status) {
-            case "ACCEPTED"      -> Submission.Status.ACCEPTED;
-            case "WRONG_ANSWER"  -> Submission.Status.WRONG_ANSWER;
-            case "TIME_LIMIT"    -> Submission.Status.TIME_LIMIT;
-            case "COMPILE_ERROR" -> Submission.Status.COMPILE_ERROR;
-            default              -> Submission.Status.RUNTIME_ERROR;
-        };
-    }
-
-    private void updateUserProblemStatus(
-            Long userId, Long problemId, String status) {
-        UserProblem.UserProblemId id =
-                new UserProblem.UserProblemId(userId, problemId);
-        Optional<UserProblem> existing = userProblemRepository
-                .findByIdUserIdAndIdProblemId(userId, problemId);
-
-        if ("ACCEPTED".equals(status)) {
-            UserProblem up = existing.orElse(new UserProblem());
-            up.setId(id);
-            up.setStatus(UserProblem.Status.SOLVED);
-            up.setSolvedAt(LocalDateTime.now());
-            userProblemRepository.save(up);
-        } else if (existing.isEmpty()) {
-            UserProblem up = new UserProblem();
-            up.setId(id);
-            up.setStatus(UserProblem.Status.ATTEMPTED);
-            userProblemRepository.save(up);
-        }
     }
 }

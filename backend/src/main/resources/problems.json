@@ -1,0 +1,193 @@
+[
+  {
+    "title": "Two Sum",
+    "slug": "two-sum",
+    "description": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+    "difficulty": "EASY",
+    "topicTags": "Array,HashMap",
+    "companyTags": "Google,Amazon",
+    "functionName": "twoSum",
+    "testCases": [
+      { "input": "2 7 11 15\n9", "output": "0 1", "hidden": false },
+      { "input": "3 2 4\n6",     "output": "1 2", "hidden": false },
+      { "input": "3 3\n6",       "output": "0 1", "hidden": true  }
+    ],
+    "pythonTemplate": "def twoSum(nums, target):\n    # Write your solution here\n    pass",
+    "pythonDriver": "import sys\ndata = sys.stdin.read().split('\\n')\nnums = list(map(int, data[0].split()))\ntarget = int(data[1])\n\n{{USER_CODE}}\n\nresult = twoSum(nums, target)\nprint(result[0], result[1])",
+    "javaTemplate": "public int[] twoSum(int[] nums, int target) {\n    // Write your solution here\n    return new int[]{};\n}",
+    "javaDriver": "import java.util.*;\npublic class Main {\n    {{USER_CODE}}\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        int[] nums = Arrays.stream(sc.nextLine().trim().split(\" \")).mapToInt(Integer::parseInt).toArray();\n        int target = Integer.parseInt(sc.nextLine().trim());\n        int[] r = new Main().twoSum(nums, target);\n        System.out.println(r[0] + \" \" + r[1]);\n    }\n}",
+    "cppTemplate": "vector<int> twoSum(vector<int>& nums, int target) {\n    // Write your solution here\n    return {};\n}",
+    "cppDriver": "#include<bits/stdc++.h>\nusing namespace std;\n{{USER_CODE}}\nint main(){\n    string line; getline(cin,line);\n    istringstream iss(line);\n    vector<int> nums; int x;\n    while(iss>>x) nums.push_back(x);\n    int target; cin>>target;\n    vector<int> r=twoSum(nums,target);\n    cout<<r[0]<<\" \"<<r[1]<<endl;\n}"
+  },
+  {
+    "title": "Valid Parentheses",
+    "slug": "valid-parentheses",
+    "description": "Given a string s containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid.",
+    "difficulty": "EASY",
+    "topicTags": "String,Stack",
+    "companyTags": "Google,Facebook",
+    "testCases": [
+      { "input": "()",     "output": "true",  "hidden": false },
+      { "input": "()[]{}", "output": "true",  "hidden": false },
+      { "input": "(]",     "output": "false", "hidden": true  }
+    ],
+    "pythonTemplate": "def isValid(s):\n    # Write your solution here\n    pass",
+    "pythonDriver": "import sys\ns = sys.stdin.read().strip()\n\n{{USER_CODE}}\n\nprint(str(isValid(s)).lower())",
+    "javaTemplate": "public boolean isValid(String s) {\n    // Write your solution here\n    return false;\n}",
+    "javaDriver": "import java.util.*;\npublic class Main {\n    {{USER_CODE}}\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        System.out.println(new Main().isValid(sc.nextLine().trim()));\n    }\n}",
+    "cppTemplate": "bool isValid(string s) {\n    // Write your solution here\n    return false;\n}",
+    "cppDriver": "#include<bits/stdc++.h>\nusing namespace std;\n{{USER_CODE}}\nint main(){\n    string s; getline(cin,s);\n    cout<<(isValid(s)?\"true\":\"false\")<<endl;\n}"
+  },
+  {
+    "title": "Reverse Linked List",
+    "slug": "reverse-linked-list",
+    "description": "Given the head of a singly linked list, reverse the list, and return the reversed list. Input is space separated values, -1 means null.",
+    "difficulty": "EASY",
+    "topicTags": "LinkedList,Recursion",
+    "companyTags": "Amazon,Microsoft",
+    "testCases": [
+      { "input": "1 2 3 4 5", "output": "5 4 3 2 1", "hidden": false },
+      { "input": "1 2",       "output": "2 1",       "hidden": false },
+      { "input": "1",         "output": "1",         "hidden": true  }
+    ],
+    "pythonTemplate": "def reverseList(head):\n    # Write your solution here\n    pass",
+    "pythonDriver": "import sys\n\nclass ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\ndef buildList(vals):\n    if not vals: return None\n    head = ListNode(vals[0])\n    cur = head\n    for v in vals[1:]:\n        cur.next = ListNode(v)\n        cur = cur.next\n    return head\n\ndef printList(head):\n    res = []\n    while head:\n        res.append(str(head.val))\n        head = head.next\n    print(' '.join(res))\n\n{{USER_CODE}}\n\ndata = list(map(int, sys.stdin.read().split()))\nhead = buildList(data)\nresult = reverseList(head)\nprintList(result)",
+    "javaTemplate": "public ListNode reverseList(ListNode head) {\n    // Write your solution here\n    return null;\n}",
+    "javaDriver": "import java.util.*;\npublic class Main {\n    static class ListNode {\n        int val; ListNode next;\n        ListNode(int v){ val=v; }\n    }\n    {{USER_CODE}}\n    static ListNode build(int[] a){\n        if(a.length==0) return null;\n        ListNode h=new ListNode(a[0]),c=h;\n        for(int i=1;i<a.length;i++){c.next=new ListNode(a[i]);c=c.next;}\n        return h;\n    }\n    static void print(ListNode h){\n        StringBuilder sb=new StringBuilder();\n        while(h!=null){if(sb.length()>0)sb.append(' ');sb.append(h.val);h=h.next;}\n        System.out.println(sb);\n    }\n    public static void main(String[] args){\n        Scanner sc=new Scanner(System.in);\n        int[] a=Arrays.stream(sc.nextLine().trim().split(\" \")).mapToInt(Integer::parseInt).toArray();\n        print(new Main().reverseList(build(a)));\n    }\n}",
+    "cppTemplate": "ListNode* reverseList(ListNode* head) {\n    // Write your solution here\n    return nullptr;\n}",
+    "cppDriver": "#include<bits/stdc++.h>\nusing namespace std;\nstruct ListNode{int val;ListNode*next;ListNode(int v):val(v),next(nullptr){}};\n{{USER_CODE}}\nint main(){\n    string line;getline(cin,line);\n    istringstream iss(line);\n    vector<int> vals;int x;\n    while(iss>>x)vals.push_back(x);\n    ListNode*head=nullptr,*cur=nullptr;\n    for(int v:vals){ListNode*n=new ListNode(v);if(!head)head=cur=n;else{cur->next=n;cur=n;}}\n    ListNode*r=reverseList(head);\n    while(r){cout<<r->val;if(r->next)cout<<' ';r=r->next;}\n    cout<<endl;\n}"
+  },
+  {
+    "title": "Maximum Subarray",
+    "slug": "maximum-subarray",
+    "description": "Given an integer array nums, find the subarray with the largest sum and return its sum.",
+    "difficulty": "MEDIUM",
+    "topicTags": "Array,Dynamic Programming",
+    "companyTags": "Amazon,Google",
+    "testCases": [
+      { "input": "-2 1 -3 4 -1 2 1 -5 4", "output": "6", "hidden": false },
+      { "input": "1",                       "output": "1", "hidden": false },
+      { "input": "5 4 -1 7 8",              "output": "23","hidden": true  }
+    ],
+    "pythonTemplate": "def maxSubArray(nums):\n    # Write your solution here\n    pass",
+    "pythonDriver": "import sys\nnums = list(map(int, sys.stdin.read().split()))\n\n{{USER_CODE}}\n\nprint(maxSubArray(nums))",
+    "javaTemplate": "public int maxSubArray(int[] nums) {\n    // Write your solution here\n    return 0;\n}",
+    "javaDriver": "import java.util.*;\npublic class Main {\n    {{USER_CODE}}\n    public static void main(String[] args){\n        Scanner sc=new Scanner(System.in);\n        int[] nums=Arrays.stream(sc.nextLine().trim().split(\" \")).mapToInt(Integer::parseInt).toArray();\n        System.out.println(new Main().maxSubArray(nums));\n    }\n}",
+    "cppTemplate": "int maxSubArray(vector<int>& nums) {\n    // Write your solution here\n    return 0;\n}",
+    "cppDriver": "#include<bits/stdc++.h>\nusing namespace std;\n{{USER_CODE}}\nint main(){\n    string line;getline(cin,line);\n    istringstream iss(line);\n    vector<int> nums;int x;\n    while(iss>>x)nums.push_back(x);\n    cout<<maxSubArray(nums)<<endl;\n}"
+  },
+  {
+    "title": "Climbing Stairs",
+    "slug": "climbing-stairs",
+    "description": "You are climbing a staircase. It takes n steps to reach the top. Each time you can either climb 1 or 2 steps. In how many distinct ways can you climb to the top?",
+    "difficulty": "EASY",
+    "topicTags": "Math,Dynamic Programming,Memoization",
+    "companyTags": "Amazon,Google,Adobe",
+    "testCases": [
+      { "input": "2", "output": "2", "hidden": false },
+      { "input": "3", "output": "3", "hidden": false },
+      { "input": "5", "output": "8", "hidden": true  }
+    ],
+    "pythonTemplate": "def climbStairs(n):\n    # Write your solution here\n    pass",
+    "pythonDriver": "import sys\nn = int(sys.stdin.read().strip())\n\n{{USER_CODE}}\n\nprint(climbStairs(n))",
+    "javaTemplate": "public int climbStairs(int n) {\n    // Write your solution here\n    return 0;\n}",
+    "javaDriver": "import java.util.*;\npublic class Main {\n    {{USER_CODE}}\n    public static void main(String[] args){\n        Scanner sc=new Scanner(System.in);\n        System.out.println(new Main().climbStairs(Integer.parseInt(sc.nextLine().trim())));\n    }\n}",
+    "cppTemplate": "int climbStairs(int n) {\n    // Write your solution here\n    return 0;\n}",
+    "cppDriver": "#include<bits/stdc++.h>\nusing namespace std;\n{{USER_CODE}}\nint main(){\n    int n;cin>>n;\n    cout<<climbStairs(n)<<endl;\n}"
+  },
+  {
+    "title": "Best Time to Buy and Sell Stock",
+    "slug": "best-time-to-buy-sell-stock",
+    "description": "Given an array prices where prices[i] is the price of a stock on the ith day, return the maximum profit you can achieve. If no profit return 0.",
+    "difficulty": "EASY",
+    "topicTags": "Array,Dynamic Programming",
+    "companyTags": "Amazon,Facebook,Google",
+    "testCases": [
+      { "input": "7 1 5 3 6 4", "output": "5", "hidden": false },
+      { "input": "7 6 4 3 1",   "output": "0", "hidden": false },
+      { "input": "2 4 1",        "output": "2", "hidden": true  }
+    ],
+    "pythonTemplate": "def maxProfit(prices):\n    # Write your solution here\n    pass",
+    "pythonDriver": "import sys\nprices = list(map(int, sys.stdin.read().split()))\n\n{{USER_CODE}}\n\nprint(maxProfit(prices))",
+    "javaTemplate": "public int maxProfit(int[] prices) {\n    // Write your solution here\n    return 0;\n}",
+    "javaDriver": "import java.util.*;\npublic class Main {\n    {{USER_CODE}}\n    public static void main(String[] args){\n        Scanner sc=new Scanner(System.in);\n        int[] p=Arrays.stream(sc.nextLine().trim().split(\" \")).mapToInt(Integer::parseInt).toArray();\n        System.out.println(new Main().maxProfit(p));\n    }\n}",
+    "cppTemplate": "int maxProfit(vector<int>& prices) {\n    // Write your solution here\n    return 0;\n}",
+    "cppDriver": "#include<bits/stdc++.h>\nusing namespace std;\n{{USER_CODE}}\nint main(){\n    string line;getline(cin,line);\n    istringstream iss(line);\n    vector<int> p;int x;\n    while(iss>>x)p.push_back(x);\n    cout<<maxProfit(p)<<endl;\n}"
+  },
+  {
+    "title": "Merge Two Sorted Lists",
+    "slug": "merge-two-sorted-lists",
+    "description": "Merge two sorted linked lists and return it as a sorted list. Input has two lines each with space separated values.",
+    "difficulty": "EASY",
+    "topicTags": "LinkedList,Recursion",
+    "companyTags": "Amazon,Microsoft,Google",
+    "testCases": [
+      { "input": "1 2 4\n1 3 4", "output": "1 1 2 3 4 4", "hidden": false },
+      { "input": "\n",           "output": "",             "hidden": false },
+      { "input": "1\n",          "output": "1",            "hidden": true  }
+    ],
+    "pythonTemplate": "def mergeTwoLists(list1, list2):\n    # Write your solution here\n    pass",
+    "pythonDriver": "import sys\n\nclass ListNode:\n    def __init__(self,val=0,next=None):\n        self.val=val;self.next=next\n\ndef build(vals):\n    if not vals:return None\n    h=ListNode(vals[0]);c=h\n    for v in vals[1:]:c.next=ListNode(v);c=c.next\n    return h\n\ndef printList(h):\n    r=[]\n    while h:r.append(str(h.val));h=h.next\n    print(' '.join(r))\n\n{{USER_CODE}}\n\nlines=sys.stdin.read().split('\\n')\nl1=build(list(map(int,lines[0].split())) if lines[0].strip() else [])\nl2=build(list(map(int,lines[1].split())) if len(lines)>1 and lines[1].strip() else [])\nprintList(mergeTwoLists(l1,l2))",
+    "javaTemplate": "public ListNode mergeTwoLists(ListNode list1, ListNode list2) {\n    // Write your solution here\n    return null;\n}",
+    "javaDriver": "import java.util.*;\npublic class Main{\n    static class ListNode{int val;ListNode next;ListNode(int v){val=v;}}\n    {{USER_CODE}}\n    static ListNode build(String s){\n        if(s.trim().isEmpty())return null;\n        String[]a=s.trim().split(\" \");\n        ListNode h=new ListNode(Integer.parseInt(a[0])),c=h;\n        for(int i=1;i<a.length;i++){c.next=new ListNode(Integer.parseInt(a[i]));c=c.next;}\n        return h;\n    }\n    static void print(ListNode h){\n        StringBuilder sb=new StringBuilder();\n        while(h!=null){if(sb.length()>0)sb.append(' ');sb.append(h.val);h=h.next;}\n        System.out.println(sb);\n    }\n    public static void main(String[]args){\n        Scanner sc=new Scanner(System.in);\n        String l1=sc.hasNextLine()?sc.nextLine():\"\";\n        String l2=sc.hasNextLine()?sc.nextLine():\"\";\n        print(new Main().mergeTwoLists(build(l1),build(l2)));\n    }\n}",
+    "cppTemplate": "ListNode* mergeTwoLists(ListNode* l1, ListNode* l2) {\n    // Write your solution here\n    return nullptr;\n}",
+    "cppDriver": "#include<bits/stdc++.h>\nusing namespace std;\nstruct ListNode{int val;ListNode*next;ListNode(int v):val(v),next(nullptr){}};\n{{USER_CODE}}\nListNode*build(string s){\n    if(s.empty())return nullptr;\n    istringstream iss(s);ListNode*h=nullptr,*c=nullptr;int x;\n    while(iss>>x){ListNode*n=new ListNode(x);if(!h)h=c=n;else{c->next=n;c=n;}}\n    return h;\n}\nvoid print(ListNode*h){while(h){cout<<h->val;if(h->next)cout<<' ';h=h->next;}cout<<endl;}\nint main(){\n    string l1,l2;getline(cin,l1);getline(cin,l2);\n    print(mergeTwoLists(build(l1),build(l2)));\n}"
+  },
+  {
+    "title": "Binary Search",
+    "slug": "binary-search",
+    "description": "Given an array of integers nums sorted in ascending order, and an integer target, write a function to search target in nums. If target exists return its index, otherwise return -1.",
+    "difficulty": "EASY",
+    "topicTags": "Array,Binary Search",
+    "companyTags": "Google,Facebook",
+    "testCases": [
+      { "input": "-1 0 3 5 9 12\n9", "output": "4",  "hidden": false },
+      { "input": "-1 0 3 5 9 12\n2", "output": "-1", "hidden": false },
+      { "input": "5\n5",             "output": "0",  "hidden": true  }
+    ],
+    "pythonTemplate": "def search(nums, target):\n    # Write your solution here\n    pass",
+    "pythonDriver": "import sys\ndata=sys.stdin.read().split('\\n')\nnums=list(map(int,data[0].split()))\ntarget=int(data[1])\n\n{{USER_CODE}}\n\nprint(search(nums,target))",
+    "javaTemplate": "public int search(int[] nums, int target) {\n    // Write your solution here\n    return -1;\n}",
+    "javaDriver": "import java.util.*;\npublic class Main{\n    {{USER_CODE}}\n    public static void main(String[]args){\n        Scanner sc=new Scanner(System.in);\n        int[]nums=Arrays.stream(sc.nextLine().trim().split(\" \")).mapToInt(Integer::parseInt).toArray();\n        int target=Integer.parseInt(sc.nextLine().trim());\n        System.out.println(new Main().search(nums,target));\n    }\n}",
+    "cppTemplate": "int search(vector<int>& nums, int target) {\n    // Write your solution here\n    return -1;\n}",
+    "cppDriver": "#include<bits/stdc++.h>\nusing namespace std;\n{{USER_CODE}}\nint main(){\n    string line;getline(cin,line);\n    istringstream iss(line);vector<int>nums;int x;\n    while(iss>>x)nums.push_back(x);\n    int target;cin>>target;\n    cout<<search(nums,target)<<endl;\n}"
+  },
+  {
+    "title": "Fibonacci Number",
+    "slug": "fibonacci-number",
+    "description": "Given n, calculate F(n) where F(0)=0, F(1)=1, F(n)=F(n-1)+F(n-2).",
+    "difficulty": "EASY",
+    "topicTags": "Math,Dynamic Programming,Recursion",
+    "companyTags": "Amazon,Apple",
+    "testCases": [
+      { "input": "2", "output": "1",  "hidden": false },
+      { "input": "3", "output": "2",  "hidden": false },
+      { "input": "10","output": "55", "hidden": true  }
+    ],
+    "pythonTemplate": "def fib(n):\n    # Write your solution here\n    pass",
+    "pythonDriver": "import sys\nn=int(sys.stdin.read().strip())\n\n{{USER_CODE}}\n\nprint(fib(n))",
+    "javaTemplate": "public int fib(int n) {\n    // Write your solution here\n    return 0;\n}",
+    "javaDriver": "import java.util.*;\npublic class Main{\n    {{USER_CODE}}\n    public static void main(String[]args){\n        Scanner sc=new Scanner(System.in);\n        System.out.println(new Main().fib(Integer.parseInt(sc.nextLine().trim())));\n    }\n}",
+    "cppTemplate": "int fib(int n) {\n    // Write your solution here\n    return 0;\n}",
+    "cppDriver": "#include<bits/stdc++.h>\nusing namespace std;\n{{USER_CODE}}\nint main(){int n;cin>>n;cout<<fib(n)<<endl;}"
+  },
+  {
+    "title": "Longest Common Prefix",
+    "slug": "longest-common-prefix",
+    "description": "Write a function to find the longest common prefix string amongst an array of strings. Input is space separated strings on one line.",
+    "difficulty": "EASY",
+    "topicTags": "String",
+    "companyTags": "Google,Amazon",
+    "testCases": [
+      { "input": "flower flow flight", "output": "fl",  "hidden": false },
+      { "input": "dog racecar car",    "output": "",    "hidden": false },
+      { "input": "interview inter",    "output": "inter","hidden": true  }
+    ],
+    "pythonTemplate": "def longestCommonPrefix(strs):\n    # Write your solution here\n    pass",
+    "pythonDriver": "import sys\nstrs=sys.stdin.read().strip().split()\n\n{{USER_CODE}}\n\nprint(longestCommonPrefix(strs))",
+    "javaTemplate": "public String longestCommonPrefix(String[] strs) {\n    // Write your solution here\n    return \"\";\n}",
+    "javaDriver": "import java.util.*;\npublic class Main{\n    {{USER_CODE}}\n    public static void main(String[]args){\n        Scanner sc=new Scanner(System.in);\n        String[]strs=sc.nextLine().trim().split(\" \");\n        System.out.println(new Main().longestCommonPrefix(strs));\n    }\n}",
+    "cppTemplate": "string longestCommonPrefix(vector<string>& strs) {\n    // Write your solution here\n    return \"\";\n}",
+    "cppDriver": "#include<bits/stdc++.h>\nusing namespace std;\n{{USER_CODE}}\nint main(){\n    string line;getline(cin,line);\n    istringstream iss(line);vector<string>strs;string s;\n    while(iss>>s)strs.push_back(s);\n    cout<<longestCommonPrefix(strs)<<endl;\n}"
+  }
+]

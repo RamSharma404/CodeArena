@@ -8,6 +8,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.Set;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 @Service
 public class AuthService {
     // Known disposable/temp email domains
@@ -86,8 +89,8 @@ public class AuthService {
     }
 
     // ─── VERIFY OTP ──────────────────────────────────────
-    // User enters OTP → account activated → JWT returned
-    public AuthDto.AuthResponse verifyOtp(AuthDto.VerifyOtpRequest request) {
+    // User enters OTP → account activated → JWT returned via cookie
+    public LoginResult verifyOtp(AuthDto.VerifyOtpRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -110,7 +113,10 @@ public class AuthService {
         String token = jwtUtil.generateToken(user.getEmail());
         redisService.saveToken(user.getEmail(), token);
 
-        return new AuthDto.AuthResponse(token, "Email verified successfully. Welcome!", user.getUsername(), user.getEmail(), user.getRole());
+        AuthDto.AuthResponse response = new AuthDto.AuthResponse(
+                "Email verified successfully. Welcome!",
+                user.getUsername(), user.getEmail(), user.getRole());
+        return new LoginResult(token, response);
     }
 
     // ─── RESEND OTP ──────────────────────────────────────
@@ -131,7 +137,7 @@ public class AuthService {
     }
 
     // ─── LOGIN ───────────────────────────────────────────
-    public AuthDto.AuthResponse login(AuthDto.LoginRequest request) {
+    public LoginResult login(AuthDto.LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 
@@ -142,17 +148,24 @@ public class AuthService {
         if (!user.getIsVerified())
             throw new RuntimeException("Email not verified. Please verify your email first.");
 
+        String token;
         if (redisService.hasSession(request.getEmail())) {
             String cachedToken = redisService.getToken(request.getEmail());
             if (cachedToken != null && jwtUtil.validateToken(cachedToken)) {
-                return new AuthDto.AuthResponse(cachedToken, "Login successful (cached)",
-                        user.getUsername(), user.getEmail(), user.getRole());
+                token = cachedToken;
+            } else {
+                token = jwtUtil.generateToken(user.getEmail());
+                redisService.saveToken(user.getEmail(), token);
             }
+        } else {
+            token = jwtUtil.generateToken(user.getEmail());
+            redisService.saveToken(user.getEmail(), token);
         }
 
-        String token = jwtUtil.generateToken(user.getEmail());
-        redisService.saveToken(user.getEmail(), token);
-        return new AuthDto.AuthResponse(token, "Login successful", user.getUsername(), user.getEmail(), user.getRole());
+        AuthDto.AuthResponse response = new AuthDto.AuthResponse(
+                "Login successful",
+                user.getUsername(), user.getEmail(), user.getRole());
+        return new LoginResult(token, response);
     }
 
     // ─── FORGOT PASSWORD — Step 1 ────────────────────────
@@ -205,5 +218,13 @@ public class AuthService {
     // ─── LOGOUT ──────────────────────────────────────────
     public void logout(String email) {
         redisService.deleteSession(email);
+    }
+
+    // ─── Wrapper: holds token (for cookie) + response (for body) ───
+    @Getter
+    @AllArgsConstructor
+    public static class LoginResult {
+        private final String token;
+        private final AuthDto.AuthResponse response;
     }
 }

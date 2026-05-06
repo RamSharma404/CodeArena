@@ -7,6 +7,7 @@ import com.auth.demo.repository.ProblemRepository;
 import com.auth.demo.repository.SubmissionRepository;
 import com.auth.demo.security.RoleGuard;
 import com.auth.demo.service.AIReviewService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import lombok.Data;
@@ -14,7 +15,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "${cors.allowed-origins}")
+@CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
 public class AIReviewController {
 
     private final AIReviewService      aiReviewService;
@@ -39,9 +40,9 @@ public class AIReviewController {
     public ResponseEntity<?> reviewCode(
             @PathVariable Long id,
             @RequestBody ReviewRequest request,
-            @RequestHeader("Authorization") String authHeader) {
+            HttpServletRequest httpRequest) {
         try {
-            User user = roleGuard.requireAuth(authHeader);
+            User user = roleGuard.requireAuth(httpRequest);
 
             // Check user has an accepted submission for this problem
             List<Submission> submissions = submissionRepository

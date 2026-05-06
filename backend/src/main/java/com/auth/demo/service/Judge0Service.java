@@ -71,7 +71,16 @@ public class Judge0Service {
             return pistonResult;
 
         } catch (Exception e) {
-            throw new RuntimeException("Code execution failed: " + e.getMessage());
+            System.err.println("[Judge0Service] Execution error: " + e.getMessage());
+            e.printStackTrace();
+            // Return a result with the error instead of throwing,
+            // so the caller can display a meaningful message
+            PistonResult errorResult = new PistonResult();
+            PistonResult.RunResult errorRun = new PistonResult.RunResult();
+            errorRun.setStderr("Code execution failed: " + e.getMessage());
+            errorRun.setCode(1);
+            errorResult.setRun(errorRun);
+            return errorResult;
         }
     }
 

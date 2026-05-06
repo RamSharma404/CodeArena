@@ -5,30 +5,33 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore session from localStorage on mount
+  // Restore session on mount by calling /api/auth/me
+  // This checks if the HttpOnly cookie is still valid
   useEffect(() => {
-    const savedToken = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    if (savedToken && savedUser) {
-      setToken(savedToken);
+    const checkAuth = async () => {
       try {
-        setUser(JSON.parse(savedUser));
+        const res = await API.get('/api/auth/me');
+        const { username, email, role } = res.data;
+        setUser({ username, email, role });
       } catch {
+        // No valid cookie — user is not logged in
+        setUser(null);
         localStorage.removeItem('user');
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+    checkAuth();
   }, []);
 
+  // Called after successful login/verify-otp
+  // Token is already set as HttpOnly cookie by the server
   const login = (authResponse) => {
-    const { token: jwt, username, email, role } = authResponse;
+    const { username, email, role } = authResponse;
     const userData = { username, email, role };
-    setToken(jwt);
     setUser(userData);
-    localStorage.setItem('token', jwt);
     localStorage.setItem('user', JSON.stringify(userData));
   };
 
@@ -38,16 +41,14 @@ export function AuthProvider({ children }) {
     } catch (e) {
       // ignore — server might be down
     }
-    setToken(null);
     setUser(null);
-    localStorage.removeItem('token');
     localStorage.removeItem('user');
   };
 
-  const isAuthenticated = !!token;
+  const isAuthenticated = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, isAuthenticated, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

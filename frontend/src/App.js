@@ -11,6 +11,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import Problems from './pages/Problems';
 import ProblemSolver from './pages/ProblemSolver';
 import Submissions from './pages/Submissions';
+import SubmissionDetail from './pages/SubmissionDetail';
 import AddQuestion from './pages/AddQuestion';
 import './App.css';
 
@@ -27,6 +28,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/problems" element={<Problems />} />
           <Route path="/problems/:slug" element={<ProblemSolver />} />
+          <Route path="/submission/:id" element={<SubmissionDetail />} />
           <Route path="/add-question" element={<AddQuestion />} />
           <Route
             path="/submissions"

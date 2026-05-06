@@ -4,21 +4,26 @@ import com.auth.demo.dto.ProblemDto;
 import com.auth.demo.model.User;
 import com.auth.demo.security.RoleGuard;
 import com.auth.demo.service.ProblemService;
+import com.auth.demo.service.RankingService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/problems")
-@CrossOrigin(origins = "${cors.allowed-origins}")
+@CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
 public class ProblemController {
 
     private final ProblemService problemService;
     private final RoleGuard roleGuard;
+    private final RankingService rankingService;
 
     public ProblemController(ProblemService problemService,
-                             RoleGuard roleGuard) {
+                             RoleGuard roleGuard, RankingService rankingService) {
         this.problemService = problemService;
         this.roleGuard = roleGuard;
+        this.rankingService = rankingService;
+
     }
 
     // ─── PUBLIC — anyone can view problems ───────────────────
@@ -31,16 +36,14 @@ public class ProblemController {
     public ResponseEntity<?> getProblems(
             @RequestParam(required = false) String difficulty,
             @RequestParam(required = false) String search,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            HttpServletRequest httpRequest) {
         try {
             // userId is optional — used to show solved status
             Long userId = null;
-            if (authHeader != null) {
-                try {
-                    User user = roleGuard.requireAuth(authHeader);
-                    userId = user.getId();
-                } catch (Exception ignored) {}
-            }
+            try {
+                User user = roleGuard.requireAuth(httpRequest);
+                userId = user.getId();
+            } catch (Exception ignored) {}
             return ResponseEntity.ok(problemService.getProblems(difficulty, search, userId));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -84,9 +87,9 @@ public class ProblemController {
     @PostMapping
     public ResponseEntity<?> createProblem(
             @RequestBody ProblemDto.CreateProblemRequest request,
-            @RequestHeader("Authorization") String authHeader) {
+            HttpServletRequest httpRequest) {
         try {
-            roleGuard.requireAdmin(authHeader);
+            roleGuard.requireAdmin(httpRequest);
             return ResponseEntity.ok(problemService.createProblem(request));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -98,10 +101,19 @@ public class ProblemController {
     public ResponseEntity<?> updateProblem(
             @PathVariable Long id,
             @RequestBody ProblemDto.CreateProblemRequest request,
-            @RequestHeader("Authorization") String authHeader) {
+            HttpServletRequest httpRequest) {
         try {
-            roleGuard.requireAdmin(authHeader);  // blocks non-admins
+            roleGuard.requireAdmin(httpRequest);  // blocks non-admins
             return ResponseEntity.ok(problemService.updateProblem(id, request));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+    // GET /api/problems/{id}/stats
+    @GetMapping("/{id}/stats")
+    public ResponseEntity<?> getProblemStats(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(rankingService.getProblemStats(id));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -111,9 +123,9 @@ public class ProblemController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteProblem(
             @PathVariable Long id,
-            @RequestHeader("Authorization") String authHeader) {
+            HttpServletRequest httpRequest) {
         try {
-            roleGuard.requireAdmin(authHeader);  // blocks non-admins
+            roleGuard.requireAdmin(httpRequest);  // blocks non-admins
             problemService.deleteProblem(id);
             return ResponseEntity.ok("Problem deleted successfully");
         } catch (RuntimeException e) {

@@ -38,6 +38,24 @@ public class Submission {
     @Column(name = "memory_kb")
     private Integer memoryKb;
 
+    @Column(name = "total_test_cases")
+    private Integer totalTestCases;
+
+    @Column(name = "passed_test_cases")
+    private Integer passedTestCases;
+
+    @Column(name = "failed_input", columnDefinition = "TEXT")
+    private String failedInput;
+
+    @Column(name = "failed_expected", columnDefinition = "TEXT")
+    private String failedExpected;
+
+    @Column(name = "failed_actual", columnDefinition = "TEXT")
+    private String failedActual;
+
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    private String errorMessage;
+
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
 
@@ -47,6 +65,12 @@ public class Submission {
     }
 
     public enum Status {
-        ACCEPTED, WRONG_ANSWER, TIME_LIMIT, RUNTIME_ERROR, COMPILE_ERROR
+        PENDING,
+        RUNNING,
+        ACCEPTED,
+        WRONG_ANSWER,
+        TIME_LIMIT,
+        RUNTIME_ERROR,
+        COMPILE_ERROR
     }
 }

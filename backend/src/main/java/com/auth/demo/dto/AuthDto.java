@@ -65,7 +65,6 @@ public class AuthDto {
     @Data
     @lombok.AllArgsConstructor
     public static class AuthResponse {
-        private String token;
         private String message;
         private String username;
         private String email;

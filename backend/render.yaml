@@ -1,0 +1,37 @@
+# Render Blueprint — drop this in the repo root or backend/ to auto-configure
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: codearena-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/auth/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false  # jdbc:mysql://mysql-307919fc-rs0688699-c3a8.l.aivencloud.com:17478/defaultdb?useSSL=true&requireSSL=true&serverTimezone=UTC
+      - key: DATABASE_USERNAME
+        sync: false  # avnadmin
+      - key: DATABASE_PASSWORD
+        sync: false  # your Aiven password
+      - key: REDIS_URL
+        sync: false  # rediss://default:PASSWORD@grand-salmon-98681.upstash.io:6379
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        sync: false  # https://your-app.vercel.app
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAME_SITE
+        value: "None"
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: COMPILER_API_KEY
+        sync: false
+      - key: ABSTRACT_API_KEY
+        sync: false
