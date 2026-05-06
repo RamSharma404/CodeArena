@@ -1,7 +1,7 @@
 async function test() {
-    // This simulates the EXACT code structure the new SubmissionWorker will generate
-    const code = `import java.io.*;
-import java.util.*;
+    // Simulates exactly what SubmissionWorker now generates
+    const code = `import java.util.*;
+import java.io.*;
 
 class Main {
     static final String SENTINEL = "---TC---";
@@ -26,7 +26,7 @@ class Main {
         }
     }
     static void __runOne__(String __input__) {
-        java.util.Scanner sc = new java.util.Scanner(__input__);
+        Scanner sc = new Scanner(__input__);
         String line = sc.nextLine().trim();
         int aS = line.indexOf('[');
         int aE = line.indexOf(']');
@@ -48,13 +48,7 @@ class Main {
 
 class Solution {
     public int[] twoSum(int[] nums, int target) {
-        HashMap<Integer,Integer> map = new HashMap<>();
-        for (int i = 0; i < nums.length; i++) {
-            int comp = target - nums[i];
-            if (map.containsKey(comp)) return new int[]{map.get(comp), i};
-            map.put(nums[i], i);
-        }
-        return new int[]{};
+        return new int[]{0,1};
     }
 }
 `;

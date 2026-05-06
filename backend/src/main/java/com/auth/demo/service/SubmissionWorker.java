@@ -288,7 +288,11 @@ public class SubmissionWorker {
                 // 3. Strip the entire original Main class (not just main method)
                 String stripped = removeJavaClass(cleanDriverCode, "Main");
 
-                // 4. Build a new Main class with the batch harness
+                // 4. In the original main body, redirect Scanner from System.in
+                //    to the per-test-case __input__ string
+                mainBody = mainBody.replace("new Scanner(System.in)", "new Scanner(__input__)");
+
+                // 5. Build a new Main class with the batch harness
                 String batchMain = """
 class Main {
     static final String SENTINEL = "---TC---";
@@ -313,7 +317,6 @@ class Main {
         }
     }
     static void __runOne__(String __input__) {
-        java.util.Scanner sc = new java.util.Scanner(__input__);
 """;
                 return imports.toString()
                         + "import java.io.*;\nimport java.util.*;\n\n"
