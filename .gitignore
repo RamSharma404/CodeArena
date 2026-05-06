@@ -20,6 +20,7 @@ frontend/.env.development.local
 .DS_Store
 
 # ─── Environment ───────────────────────────────────────
+.env
 application-prod.properties
 
 # ─── OS ────────────────────────────────────────────────
