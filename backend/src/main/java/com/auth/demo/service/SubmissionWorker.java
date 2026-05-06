@@ -139,12 +139,22 @@ public class SubmissionWorker {
             String lang = submission.getLanguage().toLowerCase();
             long totalRuntime = 0;
 
-            System.out.println("[Worker] Running " + total + " test cases for submission "
-                    + submission.getId() + " (lang=" + lang + ")");
+            // ─── DEBUG LOGGING ────────────────────────────────────
+            System.out.println("═══════════════════════════════════════");
+            System.out.println("[Worker] Submission " + submission.getId()
+                    + " | lang=" + lang + " | tests=" + total);
+            System.out.println("[Worker] Template found: " + template.isPresent());
+            System.out.println("[Worker] Code length: " + execCode.length());
+            System.out.println("[Worker] --- CODE START ---");
+            System.out.println(execCode);
+            System.out.println("[Worker] --- CODE END ---");
+            // ─── END DEBUG LOGGING ────────────────────────────────
 
             // Run each test case individually
             for (int i = 0; i < testCases.size(); i++) {
                 TestCase tc = testCases.get(i);
+
+                System.out.println("[Worker] TC" + (i+1) + " input='" + tc.getInput() + "'");
 
                 long startTime = System.currentTimeMillis();
                 Judge0Service.PistonResult result =
@@ -153,6 +163,14 @@ public class SubmissionWorker {
 
                 String status = judge0Service.mapStatus(result);
 
+                // Log raw API response
+                if (result.getRun() != null) {
+                    System.out.println("[Worker] TC" + (i+1) + " status=" + status
+                            + " stdout='" + result.getRun().getStdout() + "'"
+                            + " stderr='" + result.getRun().getStderr() + "'"
+                            + " code=" + result.getRun().getCode());
+                }
+
                 // Handle errors
                 if ("COMPILE_ERROR".equals(status) ||
                         "TIME_LIMIT".equals(status) ||
@@ -160,8 +178,7 @@ public class SubmissionWorker {
                     finalStatus = status;
                     if (result.getRun() != null && result.getRun().getStderr() != null)
                         error = result.getRun().getStderr();
-                    System.out.println("[Worker] Test case " + (i+1) + " error: " + status
-                            + " stderr=" + error);
+                    System.out.println("[Worker] STOPPING at TC" + (i+1) + ": " + status);
                     break;  // stop on first error
                 }
 
