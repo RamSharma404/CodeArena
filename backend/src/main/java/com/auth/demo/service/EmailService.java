@@ -15,6 +15,10 @@ public class EmailService {
 
     // Send OTP for email verification
     public void sendVerificationOtp(String toEmail, String otp) {
+        System.out.println("\n==============================================");
+        System.out.println("🚀 DEV/RENDER MODE: OTP for " + toEmail + " is: " + otp);
+        System.out.println("==============================================\n");
+
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(toEmail);
         message.setSubject("Email Verification OTP");
@@ -24,11 +28,22 @@ public class EmailService {
                         "This OTP expires in 10 minutes.\n\n" +
                         "If you did not request this, ignore this email."
         );
-        mailSender.send(message);
+        
+        new Thread(() -> {
+            try {
+                mailSender.send(message);
+            } catch (Exception e) {
+                System.out.println("SMTP blocked or failed (expected on Render Free): " + e.getMessage());
+            }
+        }).start();
     }
 
     // Send OTP for password reset
     public void sendPasswordResetOtp(String toEmail, String otp) {
+        System.out.println("\n==============================================");
+        System.out.println("🚀 DEV/RENDER MODE: Reset OTP for " + toEmail + " is: " + otp);
+        System.out.println("==============================================\n");
+
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(toEmail);
         message.setSubject("Password Reset OTP");
@@ -38,6 +53,13 @@ public class EmailService {
                         "This OTP expires in 10 minutes.\n\n" +
                         "If you did not request this, please secure your account immediately."
         );
-        mailSender.send(message);
+        
+        new Thread(() -> {
+            try {
+                mailSender.send(message);
+            } catch (Exception e) {
+                System.out.println("SMTP blocked or failed (expected on Render Free): " + e.getMessage());
+            }
+        }).start();
     }
 }
