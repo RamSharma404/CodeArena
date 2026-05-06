@@ -296,13 +296,22 @@ public class __BatchRunner__ {
     static void __runOne__(String __input__) {
         Scanner sc = new Scanner(__input__);
 """;
-                // Extract the body of main() from the original driver and move it here.
-                // We do a best-effort extraction: grab everything inside the outermost
-                // main() braces.
-                String mainBody = extractJavaMainBody(driverCode);
-                // Remove the original main method so there is no clash.
-                String stripped = removeJavaMain(driverCode);
-                return javaWrapper + mainBody + "\n    }\n}\n" + stripped;
+                // Extract all imports from driverCode
+                StringBuilder imports = new StringBuilder();
+                StringBuilder restOfCode = new StringBuilder();
+                for (String line : driverCode.split("\n")) {
+                    if (line.trim().startsWith("import ")) {
+                        imports.append(line).append("\n");
+                    } else {
+                        restOfCode.append(line).append("\n");
+                    }
+                }
+                
+                String cleanDriverCode = restOfCode.toString();
+                String mainBody = extractJavaMainBody(cleanDriverCode);
+                String stripped = removeJavaMain(cleanDriverCode);
+                
+                return imports.toString() + javaWrapper + mainBody + "\n    }\n}\n" + stripped;
             }
 
             // ── PYTHON ───────────────────────────────────────────────────────
