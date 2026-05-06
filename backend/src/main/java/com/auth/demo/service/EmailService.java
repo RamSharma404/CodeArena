@@ -56,7 +56,8 @@ public class EmailService {
 
                 Map<String, Object> templateParams = new HashMap<>();
                 templateParams.put("to_email", toEmail);
-                templateParams.put("otp", otp);
+                templateParams.put("passcode", otp);
+                templateParams.put("time", "15 minutes");
 
                 Map<String, Object> body = new HashMap<>();
                 body.put("service_id", serviceId);
