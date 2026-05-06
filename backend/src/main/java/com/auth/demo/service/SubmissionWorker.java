@@ -101,7 +101,7 @@ public class SubmissionWorker {
     // ─── Sentinel used to delimit test cases in batched execution ────
     private static final String TC_SENTINEL = "---TC---";
 
-    // ─── Execute against all test cases (single batched API call) ────
+    // ─── Execute against all test cases (one API call per test case) ────
     private void executeSubmission(Submission submission) {
         try {
             List<TestCase> testCases = testCaseRepository
@@ -127,8 +127,8 @@ public class SubmissionWorker {
             String failedActual   = null;
             String error          = null;
 
-            // ── 1. Get the per-test-case driver code ──────────────
-            String baseDriver = template.isPresent()
+            // Build the full executable code (driver + user code)
+            String execCode = template.isPresent()
                     ? template.get().getDriverCode()
                         .replace("{{USER_CODE}}",
                                 SubmissionService.sanitizeUserCode(
@@ -136,60 +136,55 @@ public class SubmissionWorker {
                                         submission.getLanguage()))
                     : submission.getCode();
 
-            // ── 2. Wrap the driver into a multi-test-case loop ────
-            String lang       = submission.getLanguage().toLowerCase();
-            String batchCode  = wrapDriverForBatch(baseDriver, lang);
+            String lang = submission.getLanguage().toLowerCase();
+            long totalRuntime = 0;
 
-            // ── 3. Build one combined stdin payload ───────────────
-            StringBuilder stdinBuilder = new StringBuilder();
-            stdinBuilder.append(total).append("\n");  // number of test cases
+            System.out.println("[Worker] Running " + total + " test cases for submission "
+                    + submission.getId() + " (lang=" + lang + ")");
+
+            // Run each test case individually
             for (int i = 0; i < testCases.size(); i++) {
-                stdinBuilder.append(testCases.get(i).getInput());
-                if (i < testCases.size() - 1)
-                    stdinBuilder.append("\n").append(TC_SENTINEL).append("\n");
-            }
-            String batchStdin = stdinBuilder.toString();
+                TestCase tc = testCases.get(i);
 
-            // ── 4. Single API call ────────────────────────────────
-            long startTime = System.currentTimeMillis();
-            Judge0Service.PistonResult result =
-                    judge0Service.executeCode(batchCode, lang, batchStdin);
-            long totalRuntime = System.currentTimeMillis() - startTime;
+                long startTime = System.currentTimeMillis();
+                Judge0Service.PistonResult result =
+                        judge0Service.executeCode(execCode, lang, tc.getInput());
+                totalRuntime += System.currentTimeMillis() - startTime;
 
-            String topStatus = judge0Service.mapStatus(result);
+                String status = judge0Service.mapStatus(result);
 
-            // ── 5. Handle compile / TLE / runtime at global level ─
-            if ("COMPILE_ERROR".equals(topStatus) ||
-                    "TIME_LIMIT".equals(topStatus) ||
-                    "RUNTIME_ERROR".equals(topStatus)) {
-                finalStatus = topStatus;
-                if (result.getRun() != null)
-                    error = result.getRun().getStderr();
-            } else {
-                // ── 6. Split output and compare per test case ─────
-                String rawOut   = result.getRun() != null
+                // Handle errors
+                if ("COMPILE_ERROR".equals(status) ||
+                        "TIME_LIMIT".equals(status) ||
+                        "RUNTIME_ERROR".equals(status)) {
+                    finalStatus = status;
+                    if (result.getRun() != null && result.getRun().getStderr() != null)
+                        error = result.getRun().getStderr();
+                    System.out.println("[Worker] Test case " + (i+1) + " error: " + status
+                            + " stderr=" + error);
+                    break;  // stop on first error
+                }
+
+                // Compare output
+                String rawOut = result.getRun() != null
                         && result.getRun().getStdout() != null
                         ? result.getRun().getStdout() : "";
-                String[] outputs = rawOut.split(TC_SENTINEL, -1);
+                String actual   = normalize(rawOut);
+                String expected = normalize(tc.getOutput());
 
-                for (int i = 0; i < testCases.size(); i++) {
-                    String actual   = i < outputs.length
-                            ? normalize(outputs[i]) : "";
-                    String expected = normalize(testCases.get(i).getOutput());
+                System.out.println("[Worker] TC" + (i+1) + " expected='" + expected
+                        + "' actual='" + actual + "'");
 
-                    if (actual.equals(expected)) {
-                        passed++;
-                    } else if ("ACCEPTED".equals(finalStatus)) {
-                        finalStatus    = "WRONG_ANSWER";
-                        failedInput    = testCases.get(i).getInput();
-                        failedExpected = expected;
-                        failedActual   = actual;
-                    }
+                if (actual.equals(expected)) {
+                    passed++;
+                } else if ("ACCEPTED".equals(finalStatus)) {
+                    finalStatus    = "WRONG_ANSWER";
+                    failedInput    = tc.getInput();
+                    failedExpected = expected;
+                    failedActual   = actual;
                 }
             }
 
-            // totalRuntime = wall-clock of the single API call.
-            // Divide by test-case count for a per-test approximation.
             Integer avgRuntime = total > 0
                     ? (int)(totalRuntime / total) : null;
 
@@ -214,17 +209,18 @@ public class SubmissionWorker {
                     submission.getProblemId(),
                     finalStatus);
 
-            // ✅ Update ranking AFTER result is saved
-            // finalStatus and avgRuntime are both known here
+            // Update ranking
             rankingService.updateStats(
                     submission.getProblemId(),
                     finalStatus,
                     avgRuntime);
 
             System.out.println("Submission " + submission.getId()
-                    + " completed: " + finalStatus);
+                    + " completed: " + finalStatus
+                    + " (" + passed + "/" + total + " passed)");
 
         } catch (Exception e) {
+            System.err.println("[Worker] Exception: " + e.getMessage());
             submission.setStatus(Submission.Status.RUNTIME_ERROR);
             submission.setErrorMessage(e.getMessage());
             submissionRepository.save(submission);
