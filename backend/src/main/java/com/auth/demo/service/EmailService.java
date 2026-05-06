@@ -1,64 +1,74 @@
 package com.auth.demo.service;
 
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    @Value("${brevo.api.key:}")
+    private String brevoApiKey;
 
-    public EmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
-    }
+    @Value("${spring.mail.username}")
+    private String senderEmail;
 
-    // Send OTP for email verification
+    private final RestTemplate restTemplate = new RestTemplate();
+
     public void sendVerificationOtp(String toEmail, String otp) {
-        System.out.println("\n==============================================");
-        System.out.println("🚀 DEV/RENDER MODE: OTP for " + toEmail + " is: " + otp);
-        System.out.println("==============================================\n");
+        logOtp("OTP", toEmail, otp);
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(toEmail);
-        message.setSubject("Email Verification OTP");
-        message.setText(
-                "Hello,\n\n" +
-                        "Your OTP for email verification is: " + otp + "\n\n" +
-                        "This OTP expires in 10 minutes.\n\n" +
-                        "If you did not request this, ignore this email."
-        );
+        String subject = "CodeArena - Email Verification OTP";
+        String htmlContent = "<p>Hello,</p><p>Your OTP for email verification is: <strong>" + otp + "</strong></p><p>This OTP expires in 10 minutes.</p>";
         
-        new Thread(() -> {
-            try {
-                mailSender.send(message);
-            } catch (Exception e) {
-                System.out.println("SMTP blocked or failed (expected on Render Free): " + e.getMessage());
-            }
-        }).start();
+        sendViaBrevo(toEmail, subject, htmlContent);
     }
 
-    // Send OTP for password reset
     public void sendPasswordResetOtp(String toEmail, String otp) {
-        System.out.println("\n==============================================");
-        System.out.println("🚀 DEV/RENDER MODE: Reset OTP for " + toEmail + " is: " + otp);
-        System.out.println("==============================================\n");
+        logOtp("Reset OTP", toEmail, otp);
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(toEmail);
-        message.setSubject("Password Reset OTP");
-        message.setText(
-                "Hello,\n\n" +
-                        "Your OTP for password reset is: " + otp + "\n\n" +
-                        "This OTP expires in 10 minutes.\n\n" +
-                        "If you did not request this, please secure your account immediately."
-        );
+        String subject = "CodeArena - Password Reset OTP";
+        String htmlContent = "<p>Hello,</p><p>Your OTP for password reset is: <strong>" + otp + "</strong></p><p>This OTP expires in 10 minutes.</p>";
         
+        sendViaBrevo(toEmail, subject, htmlContent);
+    }
+
+    private void logOtp(String type, String toEmail, String otp) {
+        System.out.println("\n==============================================");
+        System.out.println("🚀 DEV/RENDER MODE: " + type + " for " + toEmail + " is: " + otp);
+        System.out.println("==============================================\n");
+    }
+
+    private void sendViaBrevo(String toEmail, String subject, String htmlContent) {
+        if (brevoApiKey == null || brevoApiKey.isEmpty()) {
+            System.out.println("Brevo API Key not set. Email not sent.");
+            return;
+        }
+
         new Thread(() -> {
             try {
-                mailSender.send(message);
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                headers.set("api-key", brevoApiKey);
+
+                Map<String, Object> body = new HashMap<>();
+                body.put("sender", Map.of("name", "CodeArena", "email", senderEmail));
+                body.put("to", List.of(Map.of("email", toEmail)));
+                body.put("subject", subject);
+                body.put("htmlContent", htmlContent);
+
+                HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+                restTemplate.postForEntity("https://api.brevo.com/v3/smtp/email", request, String.class);
+                System.out.println("✅ Email sent successfully via Brevo API");
             } catch (Exception e) {
-                System.out.println("SMTP blocked or failed (expected on Render Free): " + e.getMessage());
+                System.out.println("❌ Failed to send email via Brevo API: " + e.getMessage());
             }
         }).start();
     }
