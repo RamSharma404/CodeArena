@@ -11,8 +11,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.boot.CommandLineRunner;
+
 @Service
-public class DatabaseSeeder {
+public class DatabaseSeeder implements CommandLineRunner {
 
     @Value("${seed.problems:false}")
     private boolean seedProblems;
@@ -31,10 +33,9 @@ public class DatabaseSeeder {
         this.objectMapper       = new ObjectMapper();
     }
 
-    @PostConstruct
-    public void seed() {
+    @Override
+    public void run(String... args) {
         // Only seed if enabled in properties
-        // AND no problems exist yet
         if (!seedProblems) return;
 
         try {
@@ -89,7 +90,7 @@ public class DatabaseSeeder {
             // Delete existing test cases for this problem
             List<TestCase> existingTCs = testCaseRepository.findByProblemId(problem.getId());
             testCaseRepository.deleteAll(existingTCs);
-            
+            List<TestCase> newTestCases = new java.util.ArrayList<>();
             for (Map<String, Object> tc : testCases) {
                 TestCase testCase = TestCase.builder()
                         .problemId(problem.getId())
@@ -97,8 +98,9 @@ public class DatabaseSeeder {
                         .output((String) tc.get("output"))
                         .isHidden((Boolean) tc.get("hidden"))
                         .build();
-                testCaseRepository.save(testCase);
+                newTestCases.add(testCase);
             }
+            testCaseRepository.saveAll(newTestCases);
         }
 
 
