@@ -117,14 +117,8 @@ public class DatabaseSeeder {
                     .problemId(problem.getId())
                     .language("JAVA")
                     .build());
-            // Force LeetCode style Java templates
-            if ("two-sum".equals(slug)) {
-                jt.setUserTemplate("class Solution {\n    public int[] twoSum(int[] nums, int target) {\n        // Write your solution here\n        return new int[]{};\n    }\n}");
-                jt.setDriverCode("import java.util.*;\n\nclass Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        String line = sc.nextLine().trim();\n        int[] nums = Arrays.stream(line.split(\" \")).mapToInt(Integer::parseInt).toArray();\n        int target = Integer.parseInt(sc.nextLine().trim());\n        Solution sol = new Solution();\n        int[] r = sol.twoSum(nums, target);\n        System.out.println(r[0] + \" \" + r[1]);\n    }\n}\n\n{{USER_CODE}}");
-            } else {
-                jt.setUserTemplate((String) p.get("javaTemplate"));
-                jt.setDriverCode((String) p.get("javaDriver"));
-            }
+            jt.setUserTemplate((String) p.get("javaTemplate"));
+            jt.setDriverCode((String) p.get("javaDriver"));
             templateRepository.save(jt);
         }
 

@@ -87,7 +87,7 @@ export default function AddQuestion() {
         topicTags: topicTags.split(',').map(t => t.trim()).filter(t => t).join(','),
         companyTags: companyTags.split(',').map(t => t.trim()).filter(t => t).join(','),
         testCases,
-        templates: templates.filter(t => t.userTemplate.trim()),
+        templates: templates.filter(t => t.userTemplate.trim() || t.driverCode.trim()),
       };
 
       await API.post('/api/problems', payload);

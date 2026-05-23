@@ -120,7 +120,7 @@ public class SubmissionService {
     public ExecutionDto.RunResponse runCode(
             ExecutionDto.RunRequest request, Long userId) {
         try {
-            long overallStart = System.currentTimeMillis();
+            double execTimeSecs = 0.0; // actual execution time from sandbox
 
             // Get the code template
             String userCode = request.getCode();
@@ -151,89 +151,152 @@ public class SubmissionService {
             String overallError  = null;
             int passed = 0;
 
-            for (int i = 0; i < testCases.size(); i++) {
-                TestCase tc = testCases.get(i);
-                try {
-                    Judge0Service.PistonResult result = judge0Service.executeCode(
-                            fullCode,
-                            request.getLanguage(),
-                            tc.getInput());
+            // Transform single-testcase driver to batch driver
+            fullCode = SubmissionWorker.wrapDriverForBatch(fullCode, request.getLanguage().toLowerCase());
 
-                    String status = judge0Service.mapStatus(result);
+            // Build batched input
+            StringBuilder batchedInput = new StringBuilder();
+            batchedInput.append(testCases.size()).append("\n");
+            for (TestCase tc : testCases) {
+                String in = tc.getInput() != null ? tc.getInput() : "";
+                batchedInput.append(in);
+                if (!in.endsWith("\n")) batchedInput.append("\n");
+                batchedInput.append(SubmissionWorker.TC_SENTINEL).append("\n");
+            }
 
-                    // Handle compile/runtime errors — stop immediately
-                    if ("COMPILE_ERROR".equals(status) ||
-                            "TIME_LIMIT".equals(status) ||
-                            "RUNTIME_ERROR".equals(status)) {
+            try {
+                Judge0Service.PistonResult result = judge0Service.executeCode(
+                        fullCode,
+                        request.getLanguage(),
+                        batchedInput.toString());
 
-                        String error = result.getRun() != null
-                                ? result.getRun().getStderr() : null;
-                        if (error != null) error = error.trim();
-                        if (error != null && error.isEmpty()) error = null;
+                // Capture actual execution time from sandbox
+                if (result.getRun() != null) {
+                    execTimeSecs = result.getRun().getExecutionTimeSeconds();
+                }
 
-                        overallStatus = status;
-                        overallError  = error;
+                String status = judge0Service.mapStatus(result);
 
-                        results.add(ExecutionDto.TestCaseResult.builder()
-                                .testCaseIndex(i + 1)
-                                .input(tc.getInput())
-                                .expectedOutput(tc.getOutput() != null ? tc.getOutput().trim() : "")
-                                .actualOutput("")
-                                .passed(false)
-                                .error(error)
-                                .build());
-                        break;
+                if ("COMPILE_ERROR".equals(status) ||
+                    "TIME_LIMIT".equals(status) ||
+                    "RUNTIME_ERROR".equals(status)) {
+                    
+                    overallStatus = status;
+                    String error = null;
+                    if (result.getRun() != null && result.getRun().getStderr() != null) {
+                        error = result.getRun().getStderr();
+                    } else if (result.getRun() != null && result.getRun().getStdout() != null) {
+                        error = result.getRun().getStdout();
                     }
-
-                    // Get actual output
-                    String actual = result.getRun() != null
-                            && result.getRun().getStdout() != null
-                            ? result.getRun().getStdout().trim() : "";
-
-                    String expected = tc.getOutput() != null
-                            ? tc.getOutput().trim() : "";
-
-                    boolean tcPassed = normalize(actual).equals(normalize(expected));
-                    if (tcPassed) {
-                        passed++;
-                    } else if ("ACCEPTED".equals(overallStatus)) {
-                        overallStatus = "WRONG_ANSWER";
-                    }
-
+                    if (error != null) error = error.trim();
+                    if (error != null && error.isEmpty()) error = null;
+                    overallError = error;
+                    
+                    // Fallback to first testcase
+                    TestCase tc = testCases.get(0);
                     results.add(ExecutionDto.TestCaseResult.builder()
-                            .testCaseIndex(i + 1)
-                            .input(tc.getInput())
-                            .expectedOutput(expected)
-                            .actualOutput(actual)
-                            .passed(tcPassed)
-                            .error(null)
-                            .build());
-
-                    // Small delay between API calls to avoid rate limiting
-                    if (i < testCases.size() - 1) {
-                        Thread.sleep(500);
-                    }
-                } catch (Exception e) {
-                    overallStatus = "RUNTIME_ERROR";
-                    overallError  = e.getMessage();
-                    results.add(ExecutionDto.TestCaseResult.builder()
-                            .testCaseIndex(i + 1)
+                            .testCaseIndex(1)
                             .input(tc.getInput())
                             .expectedOutput(tc.getOutput() != null ? tc.getOutput().trim() : "")
                             .actualOutput("")
                             .passed(false)
-                            .error(e.getMessage())
+                            .error(error)
                             .build());
-                    break;
+                } else {
+                    String rawOut = result.getRun() != null && result.getRun().getStdout() != null
+                            ? result.getRun().getStdout() : "";
+                            
+                    // Check if we captured an error in stdout
+                    String error = null;
+                    int errIdx = rawOut.indexOf("\n---ERROR---\n");
+                    if (errIdx != -1) {
+                        error = rawOut.substring(errIdx + 13).trim();
+                        rawOut = rawOut.substring(0, errIdx);
+                    }
+                    
+                    String[] outputs = rawOut.split("\\n?" + SubmissionWorker.TC_SENTINEL + "\\n?");
+                    
+                    for (int i = 0; i < testCases.size(); i++) {
+                        TestCase tc = testCases.get(i);
+                        String expected = tc.getOutput() != null ? tc.getOutput().trim() : "";
+                        
+                        if (i < outputs.length && (error == null || i < outputs.length - 1)) {
+                            String actual = outputs[i].trim();
+                            boolean tcPassed = normalize(actual).equals(normalize(expected));
+                            
+                            if (tcPassed) {
+                                passed++;
+                            } else if ("ACCEPTED".equals(overallStatus)) {
+                                overallStatus = "WRONG_ANSWER";
+                            }
+                            
+                            results.add(ExecutionDto.TestCaseResult.builder()
+                                    .testCaseIndex(i + 1)
+                                    .input(tc.getInput())
+                                    .expectedOutput(expected)
+                                    .actualOutput(actual)
+                                    .passed(tcPassed)
+                                    .error(null)
+                                    .build());
+                                    
+                            if (!tcPassed) break; // Stop at first failure
+                        } else {
+                            if (error != null && error.contains("Time Limit Exceeded")) {
+                                overallStatus = "TIME_LIMIT_EXCEEDED";
+                            } else {
+                                overallStatus = "RUNTIME_ERROR";
+                            }
+                            if (error == null) {
+                                error = result.getRun() != null ? result.getRun().getStderr() : "Program crashed mid-execution.";
+                            }
+                            if (error != null) error = error.trim();
+                            overallError = error;
+                            
+                            results.add(ExecutionDto.TestCaseResult.builder()
+                                    .testCaseIndex(i + 1)
+                                    .input(tc.getInput())
+                                    .expectedOutput(expected)
+                                    .actualOutput("")
+                                    .passed(false)
+                                    .error(error != null && !error.isEmpty() ? error : "Execution crashed.")
+                                    .build());
+                            break;
+                        }
+                    }
                 }
+            } catch (Exception e) {
+                overallStatus = "RUNTIME_ERROR";
+                overallError  = e.getMessage();
+                results.add(ExecutionDto.TestCaseResult.builder()
+                        .testCaseIndex(1)
+                        .input(testCases.get(0).getInput())
+                        .expectedOutput(testCases.get(0).getOutput() != null ? testCases.get(0).getOutput().trim() : "")
+                        .actualOutput("")
+                        .passed(false)
+                        .error(e.getMessage())
+                        .build());
             }
 
-            long totalRuntime = System.currentTimeMillis() - overallStart;
+            // ─── Calculate LeetCode-style runtime ─────────────────────
+            double startupOverhead;
+            switch (request.getLanguage().toLowerCase()) {
+                case "java":       startupOverhead = 1.6; break;
+                case "cpp":        startupOverhead = 0.3; break;
+                case "python":     startupOverhead = 0.2; break;
+                case "javascript": startupOverhead = 0.2; break;
+                default:           startupOverhead = 0.3; break;
+            }
+            
+            double userCodeTimeSecs = execTimeSecs - startupOverhead;
+            if (userCodeTimeSecs < 0) userCodeTimeSecs = 0;
+            
+            // Convert actual execution time to milliseconds (like LeetCode)
+            int runtimeMs = (int) Math.round(userCodeTimeSecs * 1000);
 
             return ExecutionDto.RunResponse.builder()
                     .status(overallStatus)
                     .error(overallError)
-                    .runtimeMs((int) totalRuntime)
+                    .runtimeMs(runtimeMs)
                     .passedCount(passed)
                     .totalCount(testCases.size())
                     .testCaseResults(results)

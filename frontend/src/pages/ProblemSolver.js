@@ -522,14 +522,19 @@ export default function ProblemSolver() {
                   </div>
 
                   {/* General error (compile error etc.) */}
-                  {runResult.error && !runResult.testCaseResults?.length && (
+                  {runResult.error && (runResult.status === 'COMPILE_ERROR' || runResult.status === 'RUNTIME_ERROR' || !runResult.testCaseResults?.length) && (
                     <div className="run-error-block">
-                      <pre className="result-pre result-error-text">{runResult.error}</pre>
+                      <div className="tc-label" style={{ color: '#ef4444', marginBottom: '8px' }}>
+                        {runResult.status === 'COMPILE_ERROR' ? 'Compilation Error' : 'Runtime Error'}
+                      </div>
+                      <pre className="result-pre result-error-text" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                        {runResult.error}
+                      </pre>
                     </div>
                   )}
 
                   {/* Test case tabs */}
-                  {runResult.testCaseResults && runResult.testCaseResults.length > 0 && (
+                  {runResult.testCaseResults && runResult.testCaseResults.length > 0 && runResult.status !== 'COMPILE_ERROR' && (
                     <>
                       <div className="tc-tabs">
                         {runResult.testCaseResults.map((tc, i) => (

@@ -5,9 +5,26 @@ import com.auth.demo.model.ProblemTemplate;
 import com.auth.demo.repository.ProblemRepository;
 import com.auth.demo.repository.ProblemTemplateRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+/**
+ * Seeds / fixes code templates for all problems.
+ *
+ * Controlled by application.properties:
+ *   seed.problems=true   → runs on every startup (upserts, safe to repeat)
+ *   seed.problems=false  → skipped entirely
+ *
+ * CONVENTION:
+ *   - Test-case inputs are RAW multi-line text (e.g. "2 7 11 15\n9")
+ *   - All driver codes read stdin in that exact raw format
+ *   - Java user template: class Solution { ... }
+ *   - Python user template: bare function
+ *   - C++ user template: bare function
+ *   - JavaScript user template: var func = function(...) { ... };
+ */
 @Component
+@ConditionalOnProperty(name = "seed.problems", havingValue = "true")
 public class DataSeeder implements CommandLineRunner {
 
     private final ProblemTemplateRepository templateRepository;
@@ -22,28 +39,32 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     public void run(String... args) {
         seedTwoSum();
+        seedValidParentheses();
         seedLongestSubstring();
         seedMedianArrays();
-        seedValidParentheses();
+        seedLongestPalindrome();
         System.out.println("✅ Template seeding complete.");
     }
 
     private void save(Long problemId, String language, String userTemplate, String driverCode) {
         if (!problemRepository.existsById(problemId)) return;
-        if (templateRepository.findByProblemIdAndLanguage(problemId, language).isPresent()) return;
-        templateRepository.save(ProblemTemplate.builder()
-                .problemId(problemId)
-                .language(language)
-                .userTemplate(userTemplate)
-                .driverCode(driverCode)
-                .build());
-        System.out.println("  Seeded template: problem=" + problemId + " lang=" + language);
+        // Always upsert — so stale templates get fixed on every deploy
+        ProblemTemplate existing = templateRepository
+                .findByProblemIdAndLanguage(problemId, language)
+                .orElse(ProblemTemplate.builder()
+                        .problemId(problemId)
+                        .language(language)
+                        .build());
+        existing.setUserTemplate(userTemplate);
+        existing.setDriverCode(driverCode);
+        templateRepository.save(existing);
+        System.out.println("  Upserted template: problem=" + problemId + " lang=" + language);
     }
 
     // ═══════════════════════════════════════════════════════════
-    // PROBLEM 1: Two Sum
-    // Input:  nums=[2,7,11,15], target=9
-    // Output: [0,1]
+    // PROBLEM: Two Sum
+    // Input:  Line 1 = space-separated nums,  Line 2 = target
+    // Output: "idx1 idx2"
     // ═══════════════════════════════════════════════════════════
     private void seedTwoSum() {
         Problem p = problemRepository.findBySlug("two-sum").orElse(null);
@@ -51,7 +72,8 @@ public class DataSeeder implements CommandLineRunner {
         Long pid = p.getId();
 
         // ── JAVA ──
-        save(pid, "JAVA", """
+        save(pid, "JAVA",
+"""
 class Solution {
     public int[] twoSum(int[] nums, int target) {
         // Write your solution here
@@ -65,22 +87,13 @@ import java.util.*;
 class Main {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
-        String line = sc.nextLine().trim();
-        int aS = line.indexOf('[');
-        int aE = line.indexOf(']');
-        String arrStr = line.substring(aS + 1, aE);
-        int[] nums = Arrays.stream(arrStr.split(","))
-                .mapToInt(s -> Integer.parseInt(s.trim())).toArray();
-        int target = Integer.parseInt(line.substring(line.lastIndexOf('=') + 1).trim());
+        String[] parts = sc.nextLine().trim().split(" ");
+        int[] nums = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i]);
+        int target = Integer.parseInt(sc.nextLine().trim());
         Solution sol = new Solution();
         int[] r = sol.twoSum(nums, target);
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < r.length; i++) {
-            if (i > 0) sb.append(",");
-            sb.append(r[i]);
-        }
-        sb.append("]");
-        System.out.println(sb);
+        System.out.println(r[0] + " " + r[1]);
     }
 }
 
@@ -88,65 +101,54 @@ class Main {
 """);
 
         // ── PYTHON ──
-        save(pid, "PYTHON", """
-class Solution:
-    def twoSum(self, nums: list[int], target: int) -> list[int]:
-        # Write your solution here
-        pass
+        save(pid, "PYTHON",
+"""
+def twoSum(nums, target):
+    # Write your solution here
+    pass
 """,
 """
+import sys
+data = sys.stdin.read().splitlines()
+nums = list(map(int, data[0].split()))
+target = int(data[1])
+
 {{USER_CODE}}
 
-line = input().strip()
-nums_str = line[line.index('['):line.index(']')+1]
-nums = list(map(int, nums_str[1:-1].split(',')))
-target = int(line.split('target=')[1].strip())
-sol = Solution()
-result = sol.twoSum(nums, target)
-print('[' + ','.join(map(str, result)) + ']')
+if 'Solution' in globals():
+    result = Solution().twoSum(nums, target)
+else:
+    result = twoSum(nums, target)
+print(result[0], result[1])
 """);
 
         // ── CPP ──
-        save(pid, "CPP", """
-class Solution {
-public:
-    vector<int> twoSum(vector<int>& nums, int target) {
-        // Write your solution here
-        return {};
-    }
-};
+        save(pid, "CPP",
+"""
+vector<int> twoSum(vector<int>& nums, int target) {
+    // Write your solution here
+    return {};
+}
 """,
 """
-#include <bits/stdc++.h>
+#include<bits/stdc++.h>
 using namespace std;
-
 {{USER_CODE}}
-
 int main() {
-    string line;
-    getline(cin, line);
-    int aS = line.find('[');
-    int aE = line.find(']');
-    string arrStr = line.substr(aS + 1, aE - aS - 1);
-    vector<int> nums;
-    stringstream ss(arrStr);
-    string tok;
-    while (getline(ss, tok, ',')) nums.push_back(stoi(tok));
-    int target = stoi(line.substr(line.rfind('=') + 1));
-    Solution sol;
-    vector<int> r = sol.twoSum(nums, target);
-    cout << "[";
-    for (int i = 0; i < r.size(); i++) {
-        if (i > 0) cout << ",";
-        cout << r[i];
-    }
-    cout << "]" << endl;
+    string line; getline(cin, line);
+    istringstream iss(line);
+    vector<int> nums; int x;
+    while(iss >> x) nums.push_back(x);
+    int target; cin >> target;
+    vector<int> result = twoSum(nums, target);
+    cout << result[0] << " " << result[1] << endl;
     return 0;
 }
 """);
 
         // ── JAVASCRIPT ──
-        save(pid, "JAVASCRIPT", """
+        save(pid, "JAVASCRIPT",
+"""
 var twoSum = function(nums, target) {
     // Write your solution here
 
@@ -158,247 +160,28 @@ var twoSum = function(nums, target) {
 let _inp = '';
 process.stdin.on('data', d => _inp += d);
 process.stdin.on('end', () => {
-    const line = _inp.trim();
-    const arrMatch = line.match(/\\[(.*?)\\]/);
-    const nums = arrMatch[1].split(',').map(Number);
-    const target = parseInt(line.split('target=')[1]);
+    const lines = _inp.trim().split('\\n');
+    const nums = lines[0].trim().split(' ').map(Number);
+    const target = parseInt(lines[1].trim());
     const r = twoSum(nums, target);
-    console.log('[' + r.join(',') + ']');
+    console.log(r[0] + ' ' + r[1]);
 });
 """);
     }
 
     // ═══════════════════════════════════════════════════════════
-    // PROBLEM 2: Longest Substring Without Repeating Characters
-    // Input:  s=abcabcbb
-    // Output: 3
-    // ═══════════════════════════════════════════════════════════
-    private void seedLongestSubstring() {
-        Problem p = problemRepository.findBySlug("longest-substring-without-repeating").orElse(null);
-        if (p == null) return;
-        Long pid = p.getId();
-
-        save(pid, "JAVA", """
-class Solution {
-    public int lengthOfLongestSubstring(String s) {
-        // Write your solution here
-        return 0;
-    }
-}
-""",
-"""
-import java.util.*;
-
-class Main {
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        String line = sc.nextLine().trim();
-        String s = line.substring(line.indexOf('=') + 1);
-        Solution sol = new Solution();
-        System.out.println(sol.lengthOfLongestSubstring(s));
-    }
-}
-
-{{USER_CODE}}
-""");
-
-        save(pid, "PYTHON", """
-class Solution:
-    def lengthOfLongestSubstring(self, s: str) -> int:
-        # Write your solution here
-        pass
-""",
-"""
-{{USER_CODE}}
-
-line = input().strip()
-s = line.split('=', 1)[1]
-sol = Solution()
-print(sol.lengthOfLongestSubstring(s))
-""");
-
-        save(pid, "CPP", """
-class Solution {
-public:
-    int lengthOfLongestSubstring(string s) {
-        // Write your solution here
-        return 0;
-    }
-};
-""",
-"""
-#include <bits/stdc++.h>
-using namespace std;
-
-{{USER_CODE}}
-
-int main() {
-    string line;
-    getline(cin, line);
-    string s = line.substr(line.find('=') + 1);
-    Solution sol;
-    cout << sol.lengthOfLongestSubstring(s) << endl;
-    return 0;
-}
-""");
-
-        save(pid, "JAVASCRIPT", """
-var lengthOfLongestSubstring = function(s) {
-    // Write your solution here
-
-};
-""",
-"""
-{{USER_CODE}}
-
-let _inp = '';
-process.stdin.on('data', d => _inp += d);
-process.stdin.on('end', () => {
-    const line = _inp.trim();
-    const s = line.substring(line.indexOf('=') + 1);
-    console.log(lengthOfLongestSubstring(s));
-});
-""");
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // PROBLEM 3: Median of Two Sorted Arrays
-    // Input:  nums1=[1,3], nums2=[2]
-    // Output: 2.0
-    // ═══════════════════════════════════════════════════════════
-    private void seedMedianArrays() {
-        Problem p = problemRepository.findBySlug("median-of-two-sorted-arrays").orElse(null);
-        if (p == null) return;
-        Long pid = p.getId();
-
-        save(pid, "JAVA", """
-class Solution {
-    public double findMedianSortedArrays(int[] nums1, int[] nums2) {
-        // Write your solution here
-        return 0.0;
-    }
-}
-""",
-"""
-import java.util.*;
-
-class Main {
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        String line = sc.nextLine().trim();
-        int s1 = line.indexOf('['), e1 = line.indexOf(']');
-        int s2 = line.indexOf('[', e1 + 1), e2 = line.indexOf(']', s2);
-        String a1 = line.substring(s1 + 1, e1);
-        String a2 = line.substring(s2 + 1, e2);
-        int[] nums1 = a1.isEmpty() ? new int[0] :
-                Arrays.stream(a1.split(",")).mapToInt(s -> Integer.parseInt(s.trim())).toArray();
-        int[] nums2 = a2.isEmpty() ? new int[0] :
-                Arrays.stream(a2.split(",")).mapToInt(s -> Integer.parseInt(s.trim())).toArray();
-        Solution sol = new Solution();
-        double r = sol.findMedianSortedArrays(nums1, nums2);
-        if (r == (long) r) System.out.printf("%.1f%n", r);
-        else System.out.println(r);
-    }
-}
-
-{{USER_CODE}}
-""");
-
-        save(pid, "PYTHON", """
-class Solution:
-    def findMedianSortedArrays(self, nums1: list[int], nums2: list[int]) -> float:
-        # Write your solution here
-        pass
-""",
-"""
-import re
-
-{{USER_CODE}}
-
-line = input().strip()
-arrays = re.findall(r'\\[(.*?)\\]', line)
-nums1 = list(map(int, arrays[0].split(','))) if arrays[0] else []
-nums2 = list(map(int, arrays[1].split(','))) if arrays[1] else []
-sol = Solution()
-r = sol.findMedianSortedArrays(nums1, nums2)
-if r == int(r):
-    print(f"{r:.1f}")
-else:
-    print(r)
-""");
-
-        save(pid, "CPP", """
-class Solution {
-public:
-    double findMedianSortedArrays(vector<int>& nums1, vector<int>& nums2) {
-        // Write your solution here
-        return 0.0;
-    }
-};
-""",
-"""
-#include <bits/stdc++.h>
-using namespace std;
-
-{{USER_CODE}}
-
-int main() {
-    string line;
-    getline(cin, line);
-    vector<vector<int>> arrs;
-    size_t pos = 0;
-    while ((pos = line.find('[', pos)) != string::npos) {
-        size_t end = line.find(']', pos);
-        string s = line.substr(pos + 1, end - pos - 1);
-        vector<int> a;
-        if (!s.empty()) {
-            stringstream ss(s);
-            string tok;
-            while (getline(ss, tok, ',')) a.push_back(stoi(tok));
-        }
-        arrs.push_back(a);
-        pos = end + 1;
-    }
-    Solution sol;
-    double r = sol.findMedianSortedArrays(arrs[0], arrs[1]);
-    cout << fixed << setprecision(1) << r << endl;
-    return 0;
-}
-""");
-
-        save(pid, "JAVASCRIPT", """
-var findMedianSortedArrays = function(nums1, nums2) {
-    // Write your solution here
-
-};
-""",
-"""
-{{USER_CODE}}
-
-let _inp = '';
-process.stdin.on('data', d => _inp += d);
-process.stdin.on('end', () => {
-    const line = _inp.trim();
-    const matches = line.match(/\\[(.*?)\\]/g);
-    const nums1 = matches[0].slice(1,-1).split(',').filter(x=>x).map(Number);
-    const nums2 = matches[1].slice(1,-1).split(',').filter(x=>x).map(Number);
-    const r = findMedianSortedArrays(nums1, nums2);
-    console.log(Number.isInteger(r) ? r.toFixed(1) : r);
-});
-""");
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // PROBLEM 4: Valid Parentheses
-    // Input:  s=()
-    // Output: true
+    // PROBLEM: Valid Parentheses
+    // Input:  Single-line string  e.g. "()"  "()[]{}"  "(]"
+    // Output: "true" or "false"
     // ═══════════════════════════════════════════════════════════
     private void seedValidParentheses() {
         Problem p = problemRepository.findBySlug("valid-parentheses").orElse(null);
         if (p == null) return;
         Long pid = p.getId();
 
-        save(pid, "JAVA", """
+        // ── JAVA ──
+        save(pid, "JAVA",
+"""
 class Solution {
     public boolean isValid(String s) {
         // Write your solution here
@@ -412,8 +195,7 @@ import java.util.*;
 class Main {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
-        String line = sc.nextLine().trim();
-        String s = line.substring(line.indexOf('=') + 1);
+        String s = sc.nextLine().trim();
         Solution sol = new Solution();
         System.out.println(sol.isValid(s));
     }
@@ -422,47 +204,48 @@ class Main {
 {{USER_CODE}}
 """);
 
-        save(pid, "PYTHON", """
-class Solution:
-    def isValid(self, s: str) -> bool:
-        # Write your solution here
-        pass
+        // ── PYTHON ──
+        save(pid, "PYTHON",
+"""
+def isValid(s):
+    # Write your solution here
+    pass
 """,
 """
+import sys
+s = sys.stdin.read().strip()
+
 {{USER_CODE}}
 
-line = input().strip()
-s = line.split('=', 1)[1]
-sol = Solution()
-print(str(sol.isValid(s)).lower())
+if 'Solution' in globals():
+    res = Solution().isValid(s)
+else:
+    res = isValid(s)
+print(str(res).lower())
 """);
 
-        save(pid, "CPP", """
-class Solution {
-public:
-    bool isValid(string s) {
-        // Write your solution here
-        return false;
-    }
-};
+        // ── CPP ──
+        save(pid, "CPP",
+"""
+bool isValid(string s) {
+    // Write your solution here
+    return false;
+}
 """,
 """
-#include <bits/stdc++.h>
+#include<bits/stdc++.h>
 using namespace std;
-
 {{USER_CODE}}
-
 int main() {
-    string line;
-    getline(cin, line);
-    string s = line.substr(line.find('=') + 1);
-    Solution sol;
-    cout << (sol.isValid(s) ? "true" : "false") << endl;
+    string s; getline(cin, s);
+    cout << (isValid(s) ? "true" : "false") << endl;
     return 0;
 }
 """);
 
-        save(pid, "JAVASCRIPT", """
+        // ── JAVASCRIPT ──
+        save(pid, "JAVASCRIPT",
+"""
 var isValid = function(s) {
     // Write your solution here
 
@@ -474,9 +257,314 @@ var isValid = function(s) {
 let _inp = '';
 process.stdin.on('data', d => _inp += d);
 process.stdin.on('end', () => {
-    const line = _inp.trim();
-    const s = line.substring(line.indexOf('=') + 1);
+    const s = _inp.trim();
     console.log(isValid(s));
+});
+""");
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // PROBLEM: Longest Substring Without Repeating Characters
+    // Input:  Single-line string  e.g. "abcabcbb"
+    // Output: An integer           e.g. "3"
+    // ═══════════════════════════════════════════════════════════
+    private void seedLongestSubstring() {
+        Problem p = problemRepository.findBySlug("longest-substring-without-repeating").orElse(null);
+        if (p == null) return;
+        Long pid = p.getId();
+
+        // ── JAVA ──
+        save(pid, "JAVA",
+"""
+class Solution {
+    public int lengthOfLongestSubstring(String s) {
+        // Write your solution here
+        return 0;
+    }
+}
+""",
+"""
+import java.util.*;
+
+class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String s = sc.nextLine().trim();
+        Solution sol = new Solution();
+        System.out.println(sol.lengthOfLongestSubstring(s));
+    }
+}
+
+{{USER_CODE}}
+""");
+
+        // ── PYTHON ──
+        save(pid, "PYTHON",
+"""
+def lengthOfLongestSubstring(s):
+    # Write your solution here
+    pass
+""",
+"""
+import sys
+s = sys.stdin.read().strip()
+
+{{USER_CODE}}
+
+if 'Solution' in globals():
+    print(Solution().lengthOfLongestSubstring(s))
+else:
+    print(lengthOfLongestSubstring(s))
+""");
+
+        // ── CPP ──
+        save(pid, "CPP",
+"""
+int lengthOfLongestSubstring(string s) {
+    // Write your solution here
+    return 0;
+}
+""",
+"""
+#include<bits/stdc++.h>
+using namespace std;
+{{USER_CODE}}
+int main() {
+    string s; getline(cin, s);
+    cout << lengthOfLongestSubstring(s) << endl;
+    return 0;
+}
+""");
+
+        // ── JAVASCRIPT ──
+        save(pid, "JAVASCRIPT",
+"""
+var lengthOfLongestSubstring = function(s) {
+    // Write your solution here
+
+};
+""",
+"""
+{{USER_CODE}}
+
+let _inp = '';
+process.stdin.on('data', d => _inp += d);
+process.stdin.on('end', () => {
+    const s = _inp.trim();
+    console.log(lengthOfLongestSubstring(s));
+});
+""");
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // PROBLEM: Median of Two Sorted Arrays
+    // Input:  Line 1 = space-separated nums1,  Line 2 = space-separated nums2
+    // Output: A decimal like "2.0" or "2.5"
+    // ═══════════════════════════════════════════════════════════
+    private void seedMedianArrays() {
+        Problem p = problemRepository.findBySlug("median-of-two-sorted-arrays").orElse(null);
+        if (p == null) return;
+        Long pid = p.getId();
+
+        // ── JAVA ──
+        save(pid, "JAVA",
+"""
+class Solution {
+    public double findMedianSortedArrays(int[] nums1, int[] nums2) {
+        // Write your solution here
+        return 0.0;
+    }
+}
+""",
+"""
+import java.util.*;
+
+class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int[] nums1 = Arrays.stream(sc.nextLine().trim().split(" "))
+                .mapToInt(Integer::parseInt).toArray();
+        int[] nums2 = Arrays.stream(sc.nextLine().trim().split(" "))
+                .mapToInt(Integer::parseInt).toArray();
+        Solution sol = new Solution();
+        double result = sol.findMedianSortedArrays(nums1, nums2);
+        if (result == (long) result) {
+            System.out.printf("%.1f%n", result);
+        } else {
+            System.out.println(result);
+        }
+    }
+}
+
+{{USER_CODE}}
+""");
+
+        // ── PYTHON ──
+        save(pid, "PYTHON",
+"""
+def findMedianSortedArrays(nums1, nums2):
+    # Write your solution here
+    pass
+""",
+"""
+import sys
+data = sys.stdin.read().splitlines()
+nums1 = list(map(int, data[0].split()))
+nums2 = list(map(int, data[1].split()))
+
+{{USER_CODE}}
+
+if 'Solution' in globals():
+    result = Solution().findMedianSortedArrays(nums1, nums2)
+else:
+    result = findMedianSortedArrays(nums1, nums2)
+if result == int(result):
+    print(float(result))
+else:
+    print(result)
+""");
+
+        // ── CPP ──
+        save(pid, "CPP",
+"""
+double findMedianSortedArrays(vector<int>& nums1, vector<int>& nums2) {
+    // Write your solution here
+    return 0.0;
+}
+""",
+"""
+#include<bits/stdc++.h>
+using namespace std;
+{{USER_CODE}}
+int main() {
+    string l1, l2;
+    getline(cin, l1);
+    getline(cin, l2);
+    istringstream i1(l1), i2(l2);
+    vector<int> n1, n2;
+    int x;
+    while (i1 >> x) n1.push_back(x);
+    while (i2 >> x) n2.push_back(x);
+    double r = findMedianSortedArrays(n1, n2);
+    if (r == (long long)r) cout << fixed << setprecision(1) << r << endl;
+    else cout << r << endl;
+    return 0;
+}
+""");
+
+        // ── JAVASCRIPT ──
+        save(pid, "JAVASCRIPT",
+"""
+var findMedianSortedArrays = function(nums1, nums2) {
+    // Write your solution here
+
+};
+""",
+"""
+{{USER_CODE}}
+
+let _inp = '';
+process.stdin.on('data', d => _inp += d);
+process.stdin.on('end', () => {
+    const lines = _inp.trim().split('\\n');
+    const nums1 = lines[0].trim().split(' ').map(Number);
+    const nums2 = lines[1].trim().split(' ').map(Number);
+    const r = findMedianSortedArrays(nums1, nums2);
+    console.log(Number.isInteger(r) ? r.toFixed(1) : r);
+});
+""");
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // PROBLEM: Longest Palindromic Substring
+    // Input:  Single-line string  e.g. "babad"
+    // Output: A string            e.g. "bab"
+    // ═══════════════════════════════════════════════════════════
+    private void seedLongestPalindrome() {
+        Problem p = problemRepository.findBySlug("longest-palindromic-substring").orElse(null);
+        if (p == null) return;
+        Long pid = p.getId();
+
+        // ── JAVA ──
+        save(pid, "JAVA",
+"""
+class Solution {
+    public String longestPalindrome(String s) {
+        // Write your solution here
+        return "";
+    }
+}
+""",
+"""
+import java.util.*;
+
+class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        String s = sc.nextLine().trim();
+        Solution sol = new Solution();
+        System.out.println(sol.longestPalindrome(s));
+    }
+}
+
+{{USER_CODE}}
+""");
+
+        // ── PYTHON ──
+        save(pid, "PYTHON",
+"""
+def longestPalindrome(s):
+    # Write your solution here
+    pass
+""",
+"""
+import sys
+s = sys.stdin.read().strip()
+
+{{USER_CODE}}
+
+if 'Solution' in globals():
+    print(Solution().longestPalindrome(s))
+else:
+    print(longestPalindrome(s))
+""");
+
+        // ── CPP ──
+        save(pid, "CPP",
+"""
+string longestPalindrome(string s) {
+    // Write your solution here
+    return "";
+}
+""",
+"""
+#include<bits/stdc++.h>
+using namespace std;
+{{USER_CODE}}
+int main() {
+    string s;
+    getline(cin, s);
+    cout << longestPalindrome(s) << endl;
+    return 0;
+}
+""");
+
+        // ── JAVASCRIPT ──
+        save(pid, "JAVASCRIPT",
+"""
+var longestPalindrome = function(s) {
+    // Write your solution here
+
+};
+""",
+"""
+{{USER_CODE}}
+
+let _inp = '';
+process.stdin.on('data', d => _inp += d);
+process.stdin.on('end', () => {
+    const s = _inp.trim();
+    console.log(longestPalindrome(s));
 });
 """);
     }
