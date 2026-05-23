@@ -80,20 +80,24 @@ public class DatabaseSeeder {
                     .companyTags((String) p.get("companyTags"))
                     .build();
             problemRepository.save(problem);
+        }
 
-            // Save test cases ONLY for new problems
-            List<Map<String, Object>> testCases =
-                    (List<Map<String, Object>>) p.get("testCases");
-            if (testCases != null) {
-                for (Map<String, Object> tc : testCases) {
-                    TestCase testCase = TestCase.builder()
-                            .problemId(problem.getId())
-                            .input((String) tc.get("input"))
-                            .output((String) tc.get("output"))
-                            .isHidden((Boolean) tc.get("hidden"))
-                            .build();
-                    testCaseRepository.save(testCase);
-                }
+        // Update test cases
+        List<Map<String, Object>> testCases =
+                (List<Map<String, Object>>) p.get("testCases");
+        if (testCases != null && !testCases.isEmpty()) {
+            // Delete existing test cases for this problem
+            List<TestCase> existingTCs = testCaseRepository.findByProblemId(problem.getId());
+            testCaseRepository.deleteAll(existingTCs);
+            
+            for (Map<String, Object> tc : testCases) {
+                TestCase testCase = TestCase.builder()
+                        .problemId(problem.getId())
+                        .input((String) tc.get("input"))
+                        .output((String) tc.get("output"))
+                        .isHidden((Boolean) tc.get("hidden"))
+                        .build();
+                testCaseRepository.save(testCase);
             }
         }
 
