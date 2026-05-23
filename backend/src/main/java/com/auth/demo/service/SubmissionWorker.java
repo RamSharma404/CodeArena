@@ -422,7 +422,7 @@ class Main {
                 try {
                     java.util.concurrent.ExecutorService __executor = java.util.concurrent.Executors.newSingleThreadExecutor();
                     java.util.concurrent.Future<?> __future = __executor.submit(() -> {
-                        __runOne__(__block__.toString());
+                        __runOne__(__block__.toString() + "\\n");
                         return null;
                     });
                     __future.get(2000, java.util.concurrent.TimeUnit.MILLISECONDS);
