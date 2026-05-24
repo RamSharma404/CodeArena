@@ -58,9 +58,34 @@ public class Judge0Service {
 
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
-            ResponseEntity<String> rawResponse = restTemplate.postForEntity(
-                    apiUrl, request, String.class
-            );
+            ResponseEntity<String> rawResponse = null;
+            int maxRetries = 3;
+            for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    rawResponse = restTemplate.postForEntity(apiUrl, request, String.class);
+                    break;
+                } catch (HttpStatusCodeException ex) {
+                    if (ex.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS && attempt < maxRetries) {
+                        try {
+                            Thread.sleep(1500 * attempt); // exponential backoff
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        }
+                    } else {
+                        throw new RuntimeException("Code execution failed: " + ex.getStatusCode() + " - " + ex.getResponseBodyAsString(), ex);
+                    }
+                } catch (Exception ex) {
+                    if (attempt < maxRetries) {
+                        try {
+                            Thread.sleep(1500 * attempt);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        }
+                    } else {
+                        throw ex;
+                    }
+                }
+            }
             
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             OnlineCompilerResponse result = mapper.readValue(rawResponse.getBody(), OnlineCompilerResponse.class);

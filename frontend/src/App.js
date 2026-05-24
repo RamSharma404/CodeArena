@@ -13,6 +13,7 @@ import ProblemSolver from './pages/ProblemSolver';
 import Submissions from './pages/Submissions';
 import SubmissionDetail from './pages/SubmissionDetail';
 import AddQuestion from './pages/AddQuestion';
+import Profile from './pages/Profile';
 import './App.css';
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
           <Route path="/problems/:slug" element={<ProblemSolver />} />
           <Route path="/submission/:id" element={<SubmissionDetail />} />
           <Route path="/add-question" element={<AddQuestion />} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route
             path="/submissions"
             element={

@@ -154,6 +154,14 @@ export default function SubmissionDetail() {
 
   const isPending = result.status === 'PENDING' || result.status === 'RUNNING';
 
+  const formatOutput = (val) => {
+    if (val === null || val === undefined) return val;
+    if (typeof val === 'string' && val.trim() === '') {
+      return `"${val}"`;
+    }
+    return val;
+  };
+
   return (
     <div className="sd-page container" id="submission-detail-page">
       {/* Back link */}
@@ -271,18 +279,18 @@ export default function SubmissionDetail() {
           <div className="sd-failed-grid">
             <div className="sd-failed-item">
               <span className="sd-failed-label">Input</span>
-              <pre className="sd-failed-pre">{result.failedInput}</pre>
+              <pre className="sd-failed-pre">{formatOutput(result.failedInput)}</pre>
             </div>
             {result.failedExpectedOutput && (
               <div className="sd-failed-item">
                 <span className="sd-failed-label">Expected Output</span>
-                <pre className="sd-failed-pre sd-expected">{result.failedExpectedOutput}</pre>
+                <pre className="sd-failed-pre sd-expected">{formatOutput(result.failedExpectedOutput)}</pre>
               </div>
             )}
             {result.failedActualOutput && (
               <div className="sd-failed-item">
                 <span className="sd-failed-label">Your Output</span>
-                <pre className="sd-failed-pre sd-actual">{result.failedActualOutput}</pre>
+                <pre className="sd-failed-pre sd-actual">{formatOutput(result.failedActualOutput)}</pre>
               </div>
             )}
           </div>

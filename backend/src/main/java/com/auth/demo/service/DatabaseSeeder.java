@@ -94,8 +94,8 @@ public class DatabaseSeeder implements CommandLineRunner {
             for (Map<String, Object> tc : testCases) {
                 TestCase testCase = TestCase.builder()
                         .problemId(problem.getId())
-                        .input((String) tc.get("input"))
-                        .output((String) tc.get("output"))
+                        .input(String.valueOf(tc.get("input")))
+                        .output(String.valueOf(tc.get("output")))
                         .isHidden((Boolean) tc.get("hidden"))
                         .build();
                 newTestCases.add(testCase);

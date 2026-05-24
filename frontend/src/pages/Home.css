@@ -87,39 +87,45 @@
 .hero-content {
   position: relative;
   text-align: center;
-  max-width: 720px;
+  max-width: 800px;
+  z-index: 10;
 }
 
 .hero-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 18px;
+  gap: 10px;
+  padding: 8px 24px;
   border-radius: 999px;
-  background: var(--accent-soft);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(99, 102, 241, 0.3);
   color: var(--accent-glow);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  margin-bottom: 28px;
-  letter-spacing: 0.02em;
+  margin-bottom: 32px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2), inset 0 0 12px rgba(99, 102, 241, 0.1);
 }
 
 .hero-badge-dot {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--accent);
-  animation: pulse 2s ease-in-out infinite;
+  background: var(--accent-glow);
+  box-shadow: 0 0 10px var(--accent-glow);
+  animation: pulse-glow 2s ease-in-out infinite;
 }
 
 .hero-title {
-  font-size: 4rem;
-  font-weight: 800;
-  line-height: 1.1;
+  font-size: 5rem;
+  font-weight: 900;
+  line-height: 1.05;
   color: var(--text-bright);
-  margin-bottom: 24px;
-  letter-spacing: -0.03em;
+  margin-bottom: 28px;
+  letter-spacing: -0.04em;
+  text-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
 .hero-title-gradient {
@@ -127,16 +133,19 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  display: inline-block;
+  padding-bottom: 4px;
 }
 
 .hero-subtitle {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   color: var(--text-secondary);
-  line-height: 1.7;
-  margin-bottom: 40px;
-  max-width: 560px;
+  line-height: 1.8;
+  margin-bottom: 48px;
+  max-width: 640px;
   margin-left: auto;
   margin-right: auto;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.4);
 }
 
 .hero-actions {

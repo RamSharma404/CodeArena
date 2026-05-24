@@ -24,8 +24,9 @@ export default function ProblemSolver() {
   const [loadingProblem, setLoadingProblem] = useState(true);
 
   // Editor
-  const [language, setLanguage] = useState('JAVA');
+  const [language, setLanguage] = useState(() => localStorage.getItem('preferredLanguage') || 'JAVA');
   const [code, setCode] = useState('');
+  const [originalTemplate, setOriginalTemplate] = useState('');
   const [loadingTemplate, setLoadingTemplate] = useState(false);
 
   // Execution
@@ -39,6 +40,7 @@ export default function ProblemSolver() {
   const [submissions, setSubmissions] = useState([]);
   const [loadingSubs, setLoadingSubs] = useState(false);
   const [expandedSubId, setExpandedSubId] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
 
   // Error
   const [error, setError] = useState('');
@@ -73,15 +75,38 @@ export default function ProblemSolver() {
         const res = await API.get(`/api/problems/${problem.id}/template`, {
           params: { language },
         });
-        setCode(res.data.userTemplate || '');
+        const template = res.data.userTemplate || '';
+        setOriginalTemplate(template);
+        const savedCode = localStorage.getItem(`code_${problem.id}_${language}`);
+        setCode(savedCode || template);
       } catch {
-        setCode('// Template not available for this language');
+        const fallback = '// Template not available for this language';
+        setOriginalTemplate(fallback);
+        setCode(fallback);
       } finally {
         setLoadingTemplate(false);
       }
     };
     fetchTemplate();
   }, [problem, language]);
+
+  // Save code to local storage on change
+  useEffect(() => {
+    if (problem && code && code !== originalTemplate && code !== '// Template not available for this language') {
+      localStorage.setItem(`code_${problem.id}_${language}`, code);
+    }
+  }, [code, problem, language, originalTemplate]);
+
+  const handleLanguageChange = (e) => {
+    const newLang = e.target.value;
+    setLanguage(newLang);
+    localStorage.setItem('preferredLanguage', newLang);
+  };
+
+  const handleResetCode = () => {
+    setCode(originalTemplate);
+    localStorage.removeItem(`code_${problem.id}_${language}`);
+  };
 
   // Fetch submissions when left tab changes to submissions
   useEffect(() => {
@@ -103,6 +128,12 @@ export default function ProblemSolver() {
     } finally {
       setLoadingSubs(false);
     }
+  };
+
+  const handleCopy = (id, code) => {
+    navigator.clipboard.writeText(code);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   // ─── RESIZE HANDLERS ───────────────────────────────────
@@ -252,14 +283,26 @@ export default function ProblemSolver() {
             onClick={() => setLeftTab('description')}
             id="tab-description"
           >
-            📄 Description
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <polyline points="10 9 9 9 8 9" />
+            </svg>
+            Description
           </button>
+          <div className="tab-divider" style={{ width: 1, height: 16, background: 'var(--border-strong)', margin: 'auto 0' }}></div>
           <button
             className={`solver-left-tab ${leftTab === 'submissions' ? 'active' : ''}`}
             onClick={() => setLeftTab('submissions')}
             id="tab-problem-submissions"
           >
-            📋 Submissions
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            Submissions
           </button>
         </div>
 
@@ -367,8 +410,25 @@ export default function ProblemSolver() {
                       </div>
                     </div>
                     {expandedSubId === sub.id && sub.code && (
-                      <div className="solver-sub-code animate-fade-in">
-                        <pre><code>{sub.code}</code></pre>
+                      <div className="solver-sub-code animate-fade-in" style={{ position: 'relative' }}>
+                        <button
+                          onClick={() => handleCopy(sub.id, sub.code)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ position: 'absolute', top: 12, right: 14, padding: '4px 10px', fontSize: '0.75rem', zIndex: 10, display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          {copiedId === sub.id ? (
+                            <>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                              Copy
+                            </>
+                          )}
+                        </button>
+                        <pre style={{ marginTop: '24px' }}><code>{sub.code}</code></pre>
                       </div>
                     )}
                   </div>
@@ -393,7 +453,7 @@ export default function ProblemSolver() {
           <select
             className="form-select editor-lang-select"
             value={language}
-            onChange={(e) => setLanguage(e.target.value)}
+            onChange={handleLanguageChange}
             id="language-selector"
           >
             {LANGUAGES.map(l => (
@@ -402,6 +462,19 @@ export default function ProblemSolver() {
           </select>
 
           <div className="editor-actions">
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={handleResetCode}
+              title="Reset to boilerplate code"
+              id="btn-reset"
+              style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <polyline points="3 3 3 8 8 8" />
+              </svg>
+              Reset
+            </button>
             <button
               className="btn btn-secondary btn-sm"
               onClick={handleRun}

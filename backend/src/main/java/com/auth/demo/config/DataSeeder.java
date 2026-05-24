@@ -157,15 +157,15 @@ var twoSum = function(nums, target) {
 """
 {{USER_CODE}}
 
-let _inp = '';
-process.stdin.on('data', d => _inp += d);
-process.stdin.on('end', () => {
+const _inp = require('fs').readFileSync(0, 'utf-8');
+function __main__() {
     const lines = _inp.trim().split('\\n');
     const nums = lines[0].trim().split(' ').map(Number);
     const target = parseInt(lines[1].trim());
     const r = twoSum(nums, target);
     console.log(r[0] + ' ' + r[1]);
-});
+}
+__main__();
 """);
     }
 
@@ -254,12 +254,12 @@ var isValid = function(s) {
 """
 {{USER_CODE}}
 
-let _inp = '';
-process.stdin.on('data', d => _inp += d);
-process.stdin.on('end', () => {
+const _inp = require('fs').readFileSync(0, 'utf-8');
+function __main__() {
     const s = _inp.trim();
     console.log(isValid(s));
-});
+}
+__main__();
 """);
     }
 
@@ -289,7 +289,7 @@ import java.util.*;
 class Main {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
-        String s = sc.nextLine().trim();
+        String s = sc.hasNextLine() ? sc.nextLine() : "";
         Solution sol = new Solution();
         System.out.println(sol.lengthOfLongestSubstring(s));
     }
@@ -307,7 +307,7 @@ def lengthOfLongestSubstring(s):
 """,
 """
 import sys
-s = sys.stdin.read().strip()
+s = sys.stdin.read()
 
 {{USER_CODE}}
 
@@ -341,18 +341,18 @@ int main() {
 """
 var lengthOfLongestSubstring = function(s) {
     // Write your solution here
-
+    return 0;
 };
 """,
 """
 {{USER_CODE}}
 
-let _inp = '';
-process.stdin.on('data', d => _inp += d);
-process.stdin.on('end', () => {
-    const s = _inp.trim();
+const _inp = require('fs').readFileSync(0, 'utf-8');
+function __main__() {
+    const s = _inp;
     console.log(lengthOfLongestSubstring(s));
-});
+}
+__main__();
 """);
     }
 
@@ -463,15 +463,15 @@ var findMedianSortedArrays = function(nums1, nums2) {
 """
 {{USER_CODE}}
 
-let _inp = '';
-process.stdin.on('data', d => _inp += d);
-process.stdin.on('end', () => {
+const _inp = require('fs').readFileSync(0, 'utf-8');
+function __main__() {
     const lines = _inp.trim().split('\\n');
     const nums1 = lines[0].trim().split(' ').map(Number);
     const nums2 = lines[1].trim().split(' ').map(Number);
     const r = findMedianSortedArrays(nums1, nums2);
     console.log(Number.isInteger(r) ? r.toFixed(1) : r);
-});
+}
+__main__();
 """);
     }
 
@@ -560,12 +560,12 @@ var longestPalindrome = function(s) {
 """
 {{USER_CODE}}
 
-let _inp = '';
-process.stdin.on('data', d => _inp += d);
-process.stdin.on('end', () => {
+const _inp = require('fs').readFileSync(0, 'utf-8');
+function __main__() {
     const s = _inp.trim();
     console.log(longestPalindrome(s));
-});
+}
+__main__();
 """);
     }
 }

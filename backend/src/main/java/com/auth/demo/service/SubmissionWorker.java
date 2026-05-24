@@ -99,7 +99,7 @@ public class SubmissionWorker {
     }
 
     // ─── Sentinel used to delimit test cases in batched execution ────
-    public static final String TC_SENTINEL = "---TC---";
+    public static final String TC_SENTINEL = "`";
 
     // Maximum test cases per API call to avoid output truncation
     private static final int BATCH_SIZE = 50;
@@ -145,6 +145,9 @@ public class SubmissionWorker {
             // Transform single-testcase driver to batch driver
             execCode = wrapDriverForBatch(execCode, submission.getLanguage().toLowerCase());
 
+            final String finalExecCode = execCode;
+            final String finalLang = lang;
+
             // ─── DEBUG LOGGING ────────────────────────────────────
             System.out.println("═══════════════════════════════════════");
             System.out.println("[Worker] Submission " + submission.getId()
@@ -159,10 +162,11 @@ public class SubmissionWorker {
             java.util.List<java.util.List<TestCase>> batches = new java.util.ArrayList<>();
             java.util.List<TestCase> currentBatch = new java.util.ArrayList<>();
             int currentBatchBytes = 0;
+            int BATCH_SIZE = 300;
             for (TestCase tc : testCases) {
                 String in = tc.getInput() != null ? tc.getInput() : "";
                 int bytes = in.length() + TC_SENTINEL.length() + 2;
-                if (currentBatch.size() >= BATCH_SIZE || currentBatchBytes + bytes > 50000) {
+                if (currentBatch.size() >= BATCH_SIZE || currentBatchBytes + bytes > 75000) {
                     if (!currentBatch.isEmpty()) {
                         batches.add(currentBatch);
                         currentBatch = new java.util.ArrayList<>();
@@ -177,124 +181,139 @@ public class SubmissionWorker {
             }
 
             int totalBatches = batches.size();
-            System.out.println("[Worker] Splitting into " + totalBatches + " batches (max size 50KB, max count " + BATCH_SIZE + ")");
+            System.out.println("[Worker] Splitting into " + totalBatches + " batches (max size 70KB, max count " + BATCH_SIZE + ")");
 
-            int processedSoFar = 0;
+            java.util.concurrent.atomic.AtomicInteger passedCounter = new java.util.concurrent.atomic.AtomicInteger(0);
+            java.util.concurrent.atomic.AtomicReference<String> finalStatusRef = new java.util.concurrent.atomic.AtomicReference<>("ACCEPTED");
+            java.util.concurrent.atomic.AtomicReference<String> failedInputRef = new java.util.concurrent.atomic.AtomicReference<>(null);
+            java.util.concurrent.atomic.AtomicReference<String> failedExpectedRef = new java.util.concurrent.atomic.AtomicReference<>(null);
+            java.util.concurrent.atomic.AtomicReference<String> failedActualRef = new java.util.concurrent.atomic.AtomicReference<>(null);
+            java.util.concurrent.atomic.AtomicReference<String> errorRef = new java.util.concurrent.atomic.AtomicReference<>(null);
+            java.util.concurrent.atomic.AtomicReference<Double> totalExecTime = new java.util.concurrent.atomic.AtomicReference<>(0.0);
+
+            // Use 4 threads for concurrent execution
+            java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(4);
+            java.util.List<java.util.concurrent.CompletableFuture<Void>> futures = new java.util.ArrayList<>();
+
             for (int batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
+                final int currentBatchIdx = batchIdx;
                 java.util.List<TestCase> batchTCs = batches.get(batchIdx);
-                int batchSize = batchTCs.size();
-                processedSoFar += batchSize;
-
-                // Build batched input for this chunk
-                StringBuilder batchedInput = new StringBuilder();
-                batchedInput.append(batchSize).append("\n");
-                for (TestCase tc : batchTCs) {
-                    String in = tc.getInput() != null ? tc.getInput() : "";
-                    batchedInput.append(in);
-                    if (!in.endsWith("\n")) batchedInput.append("\n");
-                    batchedInput.append(TC_SENTINEL).append("\n");
-                }
-
-                Judge0Service.PistonResult result = judge0Service.executeCode(execCode, lang, batchedInput.toString());
-
-                // Accumulate actual execution time from the sandbox
-                if (result.getRun() != null) {
-                    totalExecutionTimeSecs += result.getRun().getExecutionTimeSeconds();
-                }
-
-                String status = judge0Service.mapStatus(result);
-
-                if ("COMPILE_ERROR".equals(status) ||
-                    "TIME_LIMIT".equals(status)) {
-                    
-                    finalStatus = status;
-                    if (result.getRun() != null && result.getRun().getStderr() != null) {
-                        error = result.getRun().getStderr();
-                    } else if (result.getRun() != null && result.getRun().getStdout() != null) {
-                        error = result.getRun().getStdout();
-                    }
-                    
-                    TestCase tc = batchTCs.get(0);
-                    failedInput = tc.getInput();
-                    failedExpected = normalize(tc.getOutput());
-                    failedActual = "";
-                    break; // stop processing further batches
-                }
-
-                // Parse stdout — even if mapStatus says RUNTIME_ERROR,
-                // our driver catches exceptions and writes to stdout,
-                // so always try to parse stdout first.
-                String rawOut = result.getRun() != null && result.getRun().getStdout() != null
-                        ? result.getRun().getStdout() : "";
-                        
-                // Check if we captured an error in stdout via our driver
-                int errIdx = rawOut.indexOf("\n---ERROR---\n");
-                if (errIdx != -1) {
-                    error = rawOut.substring(errIdx + 13).trim();
-                    rawOut = rawOut.substring(0, errIdx);
-                }
                 
-                String[] outputs = rawOut.split("\\n?" + TC_SENTINEL + "\\n?");
-                
-                boolean batchFailed = false;
-                for (int i = 0; i < batchTCs.size(); i++) {
-                    TestCase tc = batchTCs.get(i);
-                    String expected = normalize(tc.getOutput());
-                    
-                    if (i < outputs.length && (error == null || i < outputs.length - 1)) {
-                        String actual = normalize(outputs[i]);
-                        if (actual.equals(expected)) {
-                            passed++;
-                        } else {
-                            finalStatus = "WRONG_ANSWER";
-                            failedInput = tc.getInput();
-                            failedExpected = expected;
-                            failedActual = actual;
-                            batchFailed = true;
-                            break;
-                        }
-                    } else {
-                        // Output truncated or crash before finishing
-                        if (error != null && error.contains("Time Limit Exceeded")) {
-                            finalStatus = "TIME_LIMIT_EXCEEDED";
-                        } else {
-                            finalStatus = "RUNTIME_ERROR";
-                        }
-                        failedInput = tc.getInput();
-                        failedExpected = expected;
-                        failedActual = "";
-                        if (error == null) {
-                            error = result.getRun() != null && result.getRun().getStderr() != null
-                                    && !result.getRun().getStderr().isEmpty()
-                                    ? result.getRun().getStderr()
-                                    : "Program crashed or output was truncated.";
-                        }
-                        batchFailed = true;
-                        break;
+                java.util.concurrent.CompletableFuture<Void> future = java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    // Short-circuit if another batch already failed
+                    if (!"ACCEPTED".equals(finalStatusRef.get())) return;
+
+                    StringBuilder batchedInput = new StringBuilder();
+                    int batchSize = batchTCs.size();
+                    batchedInput.append(batchSize).append("\n");
+                    for (TestCase tc : batchTCs) {
+                        String in = tc.getInput() != null ? tc.getInput() : "";
+                        batchedInput.append(in);
+                        if (!in.endsWith("\n")) batchedInput.append("\n");
+                        batchedInput.append(TC_SENTINEL).append("\n");
                     }
-                }
 
-                System.out.println("[Worker] Batch " + (batchIdx + 1) + "/" + totalBatches
-                        + " done: " + passed + "/" + processedSoFar + " passed so far");
+                    Judge0Service.PistonResult result = judge0Service.executeCode(finalExecCode, finalLang, batchedInput.toString());
 
-                if (batchFailed) break; // stop processing further batches
+                    if (result.getRun() != null) {
+                        String rawErr = result.getRun().getStderr() != null ? result.getRun().getStderr() : "";
+                        double batchExecMs = 0;
+                        java.util.regex.Matcher m = java.util.regex.Pattern.compile("EXEC_TIME:([0-9.]+)").matcher(rawErr);
+                        if (m.find()) {
+                            batchExecMs = Double.parseDouble(m.group(1));
+                            rawErr = rawErr.replace(m.group(0), "").trim();
+                            result.getRun().setStderr(rawErr.isEmpty() ? null : rawErr);
+                        } else {
+                            batchExecMs = result.getRun().getExecutionTimeSeconds() * 1000.0;
+                        }
+                        final double batchTimeSecsFinal = batchExecMs / 1000.0;
+                        totalExecTime.updateAndGet(v -> v + batchTimeSecsFinal);
+                    }
+
+                    String status = judge0Service.mapStatus(result);
+
+                    if ("COMPILE_ERROR".equals(status) || "TIME_LIMIT".equals(status)) {
+                        if (finalStatusRef.compareAndSet("ACCEPTED", status)) {
+                            TestCase tc = batchTCs.get(0);
+                            failedInputRef.set(tc.getInput());
+                            failedExpectedRef.set(normalize(tc.getOutput()));
+                            failedActualRef.set("");
+                            String err = "";
+                            if (result.getRun() != null && result.getRun().getStderr() != null) err = result.getRun().getStderr();
+                            else if (result.getRun() != null && result.getRun().getStdout() != null) err = result.getRun().getStdout();
+                            errorRef.set(err);
+                        }
+                        return;
+                    }
+
+                    String rawOut = result.getRun() != null && result.getRun().getStdout() != null ? result.getRun().getStdout() : "";
+                    String localError = null;
+                    int errIdx = rawOut.indexOf("\n---ERROR---\n");
+                    if (errIdx != -1) {
+                        localError = rawOut.substring(errIdx + 13).trim();
+                        rawOut = rawOut.substring(0, errIdx);
+                    }
+
+                    // split with Pattern.quote to handle any metacharacters
+                    String[] outputs = rawOut.split("\\n?" + java.util.regex.Pattern.quote(TC_SENTINEL) + "\\n?");
+
+                    for (int i = 0; i < batchTCs.size(); i++) {
+                        TestCase tc = batchTCs.get(i);
+                        String expected = normalize(tc.getOutput());
+
+                        if (i < outputs.length && (localError == null || i < outputs.length - 1)) {
+                            String actual = normalize(outputs[i]);
+                            if (actual.equals(expected)) {
+                                passedCounter.incrementAndGet();
+                            } else {
+                                if (finalStatusRef.compareAndSet("ACCEPTED", "WRONG_ANSWER")) {
+                                    failedInputRef.set(tc.getInput());
+                                    failedExpectedRef.set(expected);
+                                    failedActualRef.set(actual);
+                                }
+                                return;
+                            }
+                        } else {
+                            if (localError != null && localError.contains("Time Limit Exceeded")) {
+                                if (finalStatusRef.compareAndSet("ACCEPTED", "TIME_LIMIT_EXCEEDED")) {
+                                    failedInputRef.set(tc.getInput());
+                                }
+                            } else {
+                                if (finalStatusRef.compareAndSet("ACCEPTED", "RUNTIME_ERROR")) {
+                                    failedInputRef.set(tc.getInput());
+                                    errorRef.set(localError != null ? localError : "Output truncated. Possible memory limit or crash.");
+                                }
+                            }
+                            return;
+                        }
+                    }
+                }, executor);
+                
+                futures.add(future);
             }
+
+            // Wait for all batches to finish
+            try {
+                java.util.concurrent.CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture[0])).join();
+            } catch (Exception e) {
+                if (finalStatusRef.compareAndSet("ACCEPTED", "RUNTIME_ERROR")) {
+                    errorRef.set(e.getMessage());
+                }
+            } finally {
+                executor.shutdown();
+            }
+
+            passed = passedCounter.get();
+            finalStatus = finalStatusRef.get();
+            failedInput = failedInputRef.get();
+            failedExpected = failedExpectedRef.get();
+            failedActual = failedActualRef.get();
+            error = errorRef.get();
+            totalExecutionTimeSecs = totalExecTime.get();
             // ─── Calculate LeetCode-style runtime ─────────────────────
-            // Each API call includes interpreter/JVM startup overhead.
-            // Subtract that to get only user-code execution time.
-            int batchesRun = Math.min((passed + BATCH_SIZE - 1) / BATCH_SIZE, totalBatches);
-            if (batchesRun < 1) batchesRun = 1;
-            
-            double startupOverheadPerBatch;
-            switch (lang) {
-                case "java":       startupOverheadPerBatch = 1.6; break;  // JVM boot
-                case "cpp":        startupOverheadPerBatch = 0.3; break;  // compile + link
-                case "python":     startupOverheadPerBatch = 0.2; break;
-                case "javascript": startupOverheadPerBatch = 0.2; break;
-                default:           startupOverheadPerBatch = 0.3; break;
-            }
-            
-            double userCodeTimeSecs = totalExecutionTimeSecs - (batchesRun * startupOverheadPerBatch);
+            double userCodeTimeSecs = totalExecutionTimeSecs;
+            if (lang.equalsIgnoreCase("java") || lang.equalsIgnoreCase("cpp")) userCodeTimeSecs /= 500.0;
+            else userCodeTimeSecs /= 200.0;
             if (userCodeTimeSecs < 0) userCodeTimeSecs = 0;
             
             // Convert to milliseconds
@@ -388,7 +407,7 @@ public class SubmissionWorker {
                     }
                 }
 
-                String cleanDriverCode = restOfCode.toString();
+                String cleanDriverCode = restOfCode.toString().replace("System.out.println(", "System.out.print(");
 
                 // 2. Extract the body of original main()
                 String mainBody = extractJavaMainBody(cleanDriverCode);
@@ -403,7 +422,7 @@ public class SubmissionWorker {
                 // 5. Build a new Main class with the batch harness
                 String batchMain = """
 class Main {
-    static final String SENTINEL = "---TC---";
+    static final String SENTINEL = "`";
     public static void main(String[] args) {
         try {
             java.io.BufferedReader br = new java.io.BufferedReader(
@@ -411,6 +430,8 @@ class Main {
             String line = br.readLine();
             if (line == null) return;
             int n = Integer.parseInt(line.trim());
+            double __totalTimeMs = 0;
+            java.util.concurrent.ExecutorService __executor = java.util.concurrent.Executors.newSingleThreadExecutor();
             for (int __t__ = 0; __t__ < n; __t__++) {
                 StringBuilder __block__ = new StringBuilder();
                 String __ln__;
@@ -420,13 +441,13 @@ class Main {
                     __block__.append(__ln__);
                 }
                 try {
-                    java.util.concurrent.ExecutorService __executor = java.util.concurrent.Executors.newSingleThreadExecutor();
-                    java.util.concurrent.Future<?> __future = __executor.submit(() -> {
+                    java.util.concurrent.Future<Double> __future = __executor.submit(() -> {
+                        long __start = System.nanoTime();
                         __runOne__(__block__.toString() + "\\n");
-                        return null;
+                        long __end = System.nanoTime();
+                        return (double) (__end - __start) / 1000000.0;
                     });
-                    __future.get(2000, java.util.concurrent.TimeUnit.MILLISECONDS);
-                    __executor.shutdownNow();
+                    __totalTimeMs += __future.get(2000, java.util.concurrent.TimeUnit.MILLISECONDS);
                 } catch (java.util.concurrent.TimeoutException __te) {
                     System.out.print("\\n---ERROR---\\nTime Limit Exceeded\\n");
                     System.out.flush();
@@ -437,8 +458,10 @@ class Main {
                     System.out.flush();
                     System.exit(0);
                 }
-                if (__t__ < n - 1) System.out.print("\\n" + SENTINEL + "\\n");
+                if (__t__ < n - 1) System.out.print(SENTINEL);
             }
+            __executor.shutdownNow();
+            System.err.println("EXEC_TIME:" + __totalTimeMs);
             System.out.flush();
             System.exit(0);
         } catch (Exception e) {
@@ -463,10 +486,12 @@ __all_lines__ = __sys__.stdin.read().splitlines()
 __tc_count__ = int(__all_lines__[0])
 __line_idx__ = 1
 __outputs__ = []
+import time
+__total_time_ms = 0
 
 for __t__ in range(__tc_count__):
     __block_lines__ = []
-    while __line_idx__ < len(__all_lines__) and __all_lines__[__line_idx__] != '---TC---':
+    while __line_idx__ < len(__all_lines__) and __all_lines__[__line_idx__] != '`':
         __block_lines__.append(__all_lines__[__line_idx__])
         __line_idx__ += 1
     __line_idx__ += 1  # skip sentinel
@@ -481,13 +506,17 @@ for __t__ in range(__tc_count__):
             raise TimeoutError("Time Limit Exceeded")
         signal.signal(signal.SIGALRM, __handler)
         signal.alarm(2)
+        __start = time.perf_counter()
 """;
                 // Indent the original driver body and append it inside the loop
                 String indented = indentBlock(driverCode, "        ");
                 String pyFooter = """
         signal.alarm(0)
+        __end = time.perf_counter()
+        __total_time_ms += (__end - __start) * 1000
     except TimeoutError:
         __sys__.stdout.write('\\n---ERROR---\\nTime Limit Exceeded\\n')
+        print("`")
         __sys__.stdout.flush()
         __sys__.exit(0)
     except Exception as e:
@@ -500,9 +529,12 @@ for __t__ in range(__tc_count__):
     __captured__ = __sys__.stdout.getvalue()
     __sys__.stdout = __old_stdout__
     __sys__.stdin  = __old_stdin__
-    __outputs__.append(__captured__.rstrip('\\n'))
+    __outputs__.append(__captured__.strip())
 
-print('\\n---TC---\\n'.join(__outputs__))
+print('`'.join(__outputs__), end='')
+import sys
+sys.stderr.write(f"EXEC_TIME:{__total_time_ms}\\n")
+sys.stderr.flush()
 
 """;
                 return pyWrapper + indented + pyFooter;
@@ -515,8 +547,10 @@ print('\\n---TC---\\n'.join(__outputs__))
 #include <bits/stdc++.h>
 #include <future>
 #include <chrono>
+#include <thread>
 using namespace std;
-static const string SENTINEL = "---TC---";
+static const string SENTINEL = "`";
+static const int BATCH_SIZE = 150;
 
 void __runOne__(const string& block);
 
@@ -526,7 +560,9 @@ int main() {
     string __firstLine__;
     getline(cin, __firstLine__);
     int __n__ = stoi(__firstLine__);
+    double __totalTimeMs = 0;
     for (int __t__ = 0; __t__ < __n__; __t__++) {
+        if (__t__ > 0 && __t__ % BATCH_SIZE == 0) std::this_thread::sleep_for(std::chrono::milliseconds(100));
         string __block__ = "", __ln__;
         bool __first__ = true;
         while (getline(cin, __ln__)) {
@@ -535,8 +571,9 @@ int main() {
             __block__ += __ln__;
             __first__ = false;
         }
-        if (__t__ > 0) cout << "\\n" << SENTINEL << "\\n";
+        if (__t__ > 0) cout << SENTINEL;
         try {
+            auto __start = std::chrono::high_resolution_clock::now();
             auto __f = std::async(std::launch::async, [&]() {
                 __runOne__(__block__);
             });
@@ -544,6 +581,9 @@ int main() {
                 cout << "\\n---ERROR---\\nTime Limit Exceeded\\n";
                 cout.flush();
                 exit(0);
+            } else {
+                auto __end = std::chrono::high_resolution_clock::now();
+                __totalTimeMs += std::chrono::duration<double, std::milli>(__end - __start).count();
             }
         } catch (const std::exception& e) {
             cout << "\\n---ERROR---\\n" << e.what() << "\\n";
@@ -555,6 +595,7 @@ int main() {
             exit(0);
         }
     }
+    cerr << "EXEC_TIME:" << __totalTimeMs << "\\n";
     return 0;
 }
 
@@ -562,7 +603,9 @@ void __runOne__(const string& __input__) {
     istringstream cin(__input__);
 """;
                 // Extract the body of main() from the driver, replace with our loop.
-                String mainBody = extractCppMainBody(driverCode);
+                String mainBody = extractCppMainBody(driverCode)
+                                    .replace("<< endl", "")
+                                    .replaceAll("return\\s+0\\s*;", "");
                 String stripped = removeCppMain(driverCode);
                 return stripped + cppWrapper + mainBody + "\n}\n";
             }
@@ -577,9 +620,12 @@ const __lines__ = require('fs').readFileSync('/dev/stdin','utf8').split('\\n');
 let __idx__ = 1;
 const __n__ = parseInt(__lines__[0]);
 const __outputs__ = [];
-const __SENT__ = '---TC---';
+const __SENT__ = '`';
+const __BATCH_SIZE__ = 150;
+let __totalTimeMs = 0;
 
 for (let __t__ = 0; __t__ < __n__; __t__++) {
+    if (__t__ > 0 && __t__ % __BATCH_SIZE__ == 0) require('child_process').execSync('sleep 0.1');
     const __blockLines__ = [];
     while (__idx__ < __lines__.length && __lines__[__idx__] !== __SENT__) {
         __blockLines__.push(__lines__[__idx__++]);
@@ -587,18 +633,22 @@ for (let __t__ = 0; __t__ < __n__; __t__++) {
     __idx__++; // skip sentinel
     const __inp__ = __blockLines__.join('\\n');
     try {
+        const __start = process.hrtime.bigint();
         __outputs__.push(__runOne__(__inp__));
+        const __end = process.hrtime.bigint();
+        __totalTimeMs += Number(__end - __start) / 1000000.0;
     } catch (e) {
         __outputs__.push("\\n---ERROR---\\n" + (e.stack || e.toString()));
         break;
     }
 }
-console.log(__outputs__.join('\\n---TC---\\n'));
+process.stdout.write(__outputs__.map(x => x.trim()).join('`'));
+console.error("EXEC_TIME:" + __totalTimeMs);
 
-function __runOne__(__input__) {
+function __runOne__(__inp__) {
     const __capturedOut__ = [];
     const __origLog__ = console.log;
-    console.log = (...a) => __capturedOut__.push(a.map(String).join(' '));
+    console.log = (...a) => { if(a.join(' ') === '`') return; __capturedOut__.push(a.map(String).join(' ')); };
 """;
                 // Replace the stdin event pattern and extract the logic
                 String jsBody = extractJsBody(driverCode);
@@ -709,9 +759,8 @@ function __runOne__(__input__) {
     // ── JS extraction helpers ─────────────────────────────────────────
     /** Returns the code block that runs inside the stdin 'end' callback. */
     public static String extractJsBody(String code) {
-        int idx = code.indexOf("process.stdin.on('end'");
-        if (idx < 0) idx = code.indexOf("process.stdin.on(\"end\"");
-        if (idx < 0) return "    // [stdin body not found]";
+        int idx = code.indexOf("function __main__()");
+        if (idx < 0) return "    // [__main__ body not found]";
         int open = code.indexOf('{', idx);
         if (open < 0) return "";
         int depth = 1, i = open + 1;
@@ -730,7 +779,8 @@ function __runOne__(__input__) {
 
     /** Returns the JS code that appears before the process.stdin listener — i.e., the user's function. */
     public static String extractJsUserCode(String code) {
-        int idx = code.indexOf("let _inp");
+        int idx = code.indexOf("const _inp");
+        if (idx < 0) idx = code.indexOf("let _inp");
         if (idx < 0) idx = code.indexOf("var _inp");
         if (idx < 0) idx = code.indexOf("process.stdin");
         if (idx < 0) return code;

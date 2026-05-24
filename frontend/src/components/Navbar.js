@@ -8,6 +8,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -73,18 +74,48 @@ export default function Navbar() {
         {/* Auth Actions */}
         <div className="navbar-actions">
           {isAuthenticated ? (
-            <div className="navbar-user">
-              <div className="navbar-avatar" id="user-avatar">
-                {user?.username?.charAt(0).toUpperCase()}
-              </div>
-              <span className="navbar-username">{user?.username}</span>
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={handleLogout}
-                id="btn-logout"
+            <div className="navbar-user-dropdown-container" style={{ position: 'relative' }}>
+              <div 
+                className="navbar-user" 
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                style={{ cursor: 'pointer' }}
               >
-                Logout
-              </button>
+                <div className="navbar-avatar" id="user-avatar" onClick={(e) => {
+                  e.stopPropagation();
+                  setDropdownOpen(!dropdownOpen);
+                }}>
+                  {user?.username?.charAt(0).toUpperCase()}
+                </div>
+                <span className="navbar-username" onClick={(e) => {
+                  e.stopPropagation();
+                  setDropdownOpen(!dropdownOpen);
+                }}>{user?.username}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" onClick={(e) => {
+                  e.stopPropagation();
+                  setDropdownOpen(!dropdownOpen);
+                }}>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
+
+              {/* Profile Dropdown */}
+              {dropdownOpen && (
+                <div className="navbar-dropdown-menu animate-fade-in" style={{ position: 'absolute', top: '100%', right: '0', marginTop: '8px', minWidth: '180px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '8px 0', boxShadow: 'var(--shadow-lg)', backdropFilter: 'blur(20px)', zIndex: 1000 }}>
+                  <Link to="/profile" className="navbar-dropdown-item" onClick={() => setDropdownOpen(false)} style={{ display: 'block', padding: '10px 16px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '0.875rem', transition: 'all var(--transition-fast)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                      Profile
+                    </div>
+                  </Link>
+                  <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }}></div>
+                  <button onClick={() => { handleLogout(); setDropdownOpen(false); }} className="navbar-dropdown-item" style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', color: 'var(--danger)', background: 'none', border: 'none', fontSize: '0.875rem', cursor: 'pointer', transition: 'all var(--transition-fast)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                      Logout
+                    </div>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="navbar-auth-buttons">
