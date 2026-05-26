@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import VerifyOtp from './pages/VerifyOtp';
 import ForgotPassword from './pages/ForgotPassword';
+import OAuthRedirect from './pages/OAuthRedirect';
 import Problems from './pages/Problems';
 import ProblemSolver from './pages/ProblemSolver';
 import Submissions from './pages/Submissions';
@@ -27,6 +28,7 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/verify" element={<VerifyOtp />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/oauth2/redirect" element={<OAuthRedirect />} />
           <Route path="/problems" element={<Problems />} />
           <Route path="/problems/:slug" element={<ProblemSolver />} />
           <Route path="/submission/:id" element={<SubmissionDetail />} />

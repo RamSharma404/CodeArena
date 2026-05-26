@@ -28,12 +28,12 @@ export function AuthProvider({ children }) {
 
   // Called after successful login/verify-otp
   // Token is already set as HttpOnly cookie by the server
-  const login = (authResponse) => {
+  const login = React.useCallback((authResponse) => {
     const { username, email, role } = authResponse;
     const userData = { username, email, role };
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
-  };
+  }, []);
 
   const logout = async () => {
     try {

@@ -110,7 +110,7 @@ public class AuthService {
         userRepository.save(user);
 
         redisService.markUserExists(user.getUsername());
-        String token = jwtUtil.generateToken(user.getEmail());
+        String token = jwtUtil.generateToken(user.getEmail(), user.getId(), user.getRole(), user.getUsername());
         redisService.saveToken(user.getEmail(), token);
 
         AuthDto.AuthResponse response = new AuthDto.AuthResponse(
@@ -154,11 +154,11 @@ public class AuthService {
             if (cachedToken != null && jwtUtil.validateToken(cachedToken)) {
                 token = cachedToken;
             } else {
-                token = jwtUtil.generateToken(user.getEmail());
+                token = jwtUtil.generateToken(user.getEmail(), user.getId(), user.getRole(), user.getUsername());
                 redisService.saveToken(user.getEmail(), token);
             }
         } else {
-            token = jwtUtil.generateToken(user.getEmail());
+            token = jwtUtil.generateToken(user.getEmail(), user.getId(), user.getRole(), user.getUsername());
             redisService.saveToken(user.getEmail(), token);
         }
 

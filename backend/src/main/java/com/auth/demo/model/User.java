@@ -22,8 +22,11 @@ public class User {
     @Column(unique = true, nullable = false, length = 100)
     private String email;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String password;
+
+    @Column(name = "provider", length = 20)
+    private String provider = "local";
 
     @Column(length = 100)
     private String name;

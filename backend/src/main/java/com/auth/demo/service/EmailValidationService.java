@@ -23,21 +23,26 @@ public class EmailValidationService {
                     url, EmailValidationResponse.class
             );
 
-            // Only block disposable emails
-            // Removed deliverability check — it rejects valid college/work emails
-            if (response != null
-                    && response.getIsDisposableEmail() != null
-                    && response.getIsDisposableEmail().getValue()) {
-                throw new IllegalArgumentException(
-                        "Disposable/temporary email addresses are not allowed."
-                );
+            // Strict validation: Reject disposable AND undeliverable emails
+            if (response != null) {
+                if (response.getIsDisposableEmail() != null && response.getIsDisposableEmail().getValue()) {
+                    throw new IllegalArgumentException("Disposable/temporary email addresses are not allowed.");
+                }
+                
+                // Note: deliverability is a String, e.g., "DELIVERABLE", "UNDELIVERABLE", "UNKNOWN"
+                if (response.getDeliverability() != null && "UNDELIVERABLE".equalsIgnoreCase(response.getDeliverability())) {
+                    throw new IllegalArgumentException("Email address does not exist or is undeliverable.");
+                }
+            } else {
+                throw new RuntimeException("Email validation failed. No response from provider.");
             }
 
         } catch (IllegalArgumentException e) {
             throw new RuntimeException(e.getMessage());
         } catch (Exception e) {
-            // If API is down — allow the email
-            System.out.println("Email validation API unavailable: " + e.getMessage());
+            // Strictly block if API is down or key is invalid
+            System.err.println("Email validation API error: " + e.getMessage());
+            throw new RuntimeException("Email validation service is currently unavailable. Please try again later or use Google Login.");
         }
     }
 

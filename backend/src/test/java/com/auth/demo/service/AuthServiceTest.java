@@ -59,6 +59,7 @@ class AuthServiceTest {
                 .isVerified(false)
                 .otp("123456")
                 .otpExpiresAt(LocalDateTime.now().plusMinutes(5))
+                .role("USER")
                 .build();
     }
 
@@ -79,7 +80,7 @@ class AuthServiceTest {
         when(userRepository.findByEmail("ram@gmail.com")).thenReturn(Optional.of(verifiedUser));
         when(passwordEncoder.matches("password123", "hashedPass123")).thenReturn(true);
         when(redisService.hasSession("ram@gmail.com")).thenReturn(false);
-        when(jwtUtil.generateToken("ram@gmail.com")).thenReturn("jwt-token-abc");
+        when(jwtUtil.generateToken("ram@gmail.com", 1L, "USER", "ram")).thenReturn("jwt-token-abc");
 
         AuthService.LoginResult result = authService.login(request);
 
@@ -150,7 +151,7 @@ class AuthServiceTest {
         request.setOtp("123456");
 
         when(userRepository.findByEmail("new@gmail.com")).thenReturn(Optional.of(unverifiedUser));
-        when(jwtUtil.generateToken("new@gmail.com")).thenReturn("new-jwt-token");
+        when(jwtUtil.generateToken("new@gmail.com", 2L, "USER", "newuser")).thenReturn("new-jwt-token");
 
         AuthService.LoginResult result = authService.verifyOtp(request);
 
@@ -272,6 +273,6 @@ class AuthServiceTest {
 
         assertEquals("cached-jwt-token", result.getToken());
         // generateToken should NOT have been called since we reused cached
-        verify(jwtUtil, never()).generateToken(anyString());
+        verify(jwtUtil, never()).generateToken(anyString(), anyLong(), anyString(), anyString());
     }
 }

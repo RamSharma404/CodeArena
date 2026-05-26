@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { useAuth } from '../context/AuthContext';
 import API from '../api/axios';
+import SubmissionResultInline from '../components/SubmissionResultInline';
 import './ProblemSolver.css';
 
 const LANGUAGES = [
@@ -15,7 +16,7 @@ const LANGUAGES = [
 export default function ProblemSolver() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const editorRef = useRef(null);
   const pageRef = useRef(null);
 
@@ -41,6 +42,7 @@ export default function ProblemSolver() {
   const [loadingSubs, setLoadingSubs] = useState(false);
   const [expandedSubId, setExpandedSubId] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  const [activeSubmissionId, setActiveSubmissionId] = useState(null);
 
   // Error
   const [error, setError] = useState('');
@@ -77,7 +79,16 @@ export default function ProblemSolver() {
         });
         const template = res.data.userTemplate || '';
         setOriginalTemplate(template);
-        const savedCode = localStorage.getItem(`code_${problem.id}_${language}`);
+        const userIdentifier = user ? user.email : 'guest';
+        let savedCode = localStorage.getItem(`code_${userIdentifier}_${problem.id}_${language}`);
+        
+        // Auto-fix for users affected by the previous race condition bug
+        // If the saved code contains Java signatures but the language is NOT Java, wipe it.
+        if (savedCode && savedCode.includes('public class') && language !== 'JAVA') {
+          savedCode = null;
+          localStorage.removeItem(`code_${userIdentifier}_${problem.id}_${language}`);
+        }
+
         setCode(savedCode || template);
       } catch {
         const fallback = '// Template not available for this language';
@@ -90,22 +101,19 @@ export default function ProblemSolver() {
     fetchTemplate();
   }, [problem, language]);
 
-  // Save code to local storage on change
-  useEffect(() => {
-    if (problem && code && code !== originalTemplate && code !== '// Template not available for this language') {
-      localStorage.setItem(`code_${problem.id}_${language}`, code);
-    }
-  }, [code, problem, language, originalTemplate]);
+  // Code is saved to local storage inside the Editor onChange handler to prevent race conditions when switching languages
 
   const handleLanguageChange = (e) => {
     const newLang = e.target.value;
     setLanguage(newLang);
+    setLoadingTemplate(true); // Unmount editor instantly to prevent Monaco from firing onChange with the old code
     localStorage.setItem('preferredLanguage', newLang);
   };
 
   const handleResetCode = () => {
     setCode(originalTemplate);
-    localStorage.removeItem(`code_${problem.id}_${language}`);
+    const userIdentifier = user ? user.email : 'guest';
+    localStorage.removeItem(`code_${userIdentifier}_${problem.id}_${language}`);
   };
 
   // Fetch submissions when left tab changes to submissions
@@ -200,7 +208,7 @@ export default function ProblemSolver() {
     }
   };
 
-  // Submit code — navigates to submission detail page
+  // Submit code — displays inline submission result
   const handleSubmit = async () => {
     if (!isAuthenticated) {
       navigate('/login');
@@ -218,11 +226,12 @@ export default function ProblemSolver() {
 
       const submissionId = res.data.submissionId;
       if (submissionId) {
-        // Navigate to submission detail page
-        navigate(`/submission/${submissionId}`);
+        setActiveSubmissionId(submissionId);
+        setLeftTab('result');
       }
     } catch (err) {
       setError(err.response?.data || 'Submission failed');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -304,6 +313,23 @@ export default function ProblemSolver() {
             </svg>
             Submissions
           </button>
+          
+          {activeSubmissionId && (
+            <>
+              <div className="tab-divider" style={{ width: 1, height: 16, background: 'var(--border-strong)', margin: 'auto 0' }}></div>
+              <button
+                className={`solver-left-tab ${leftTab === 'result' ? 'active' : ''}`}
+                onClick={() => setLeftTab('result')}
+                id="tab-submission-result"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                Result
+              </button>
+            </>
+          )}
         </div>
 
         {/* Description Tab */}
@@ -437,6 +463,13 @@ export default function ProblemSolver() {
             )}
           </div>
         )}
+
+        {/* Result Tab */}
+        {leftTab === 'result' && activeSubmissionId && (
+          <div className="solver-left-body" style={{ padding: '0 24px', overflowY: 'auto' }}>
+            <SubmissionResultInline submissionId={activeSubmissionId} problem={problem} />
+          </div>
+        )}
       </div>
 
       {/* Vertical Resize Handle */}
@@ -500,7 +533,11 @@ export default function ProblemSolver() {
                 <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }}></div> Submitting</>
               ) : (
                 <>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20,6 9,17 4,12" /></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
                   Submit
                 </>
               )}
@@ -519,7 +556,14 @@ export default function ProblemSolver() {
               height="100%"
               language={getMonacoLang()}
               value={code}
-              onChange={(val) => setCode(val || '')}
+              onChange={(val) => {
+                const newCode = val || '';
+                setCode(newCode);
+                if (problem && newCode && newCode !== originalTemplate && newCode !== '// Template not available for this language') {
+                  const userIdentifier = user ? user.email : 'guest';
+                  localStorage.setItem(`code_${userIdentifier}_${problem.id}_${language}`, newCode);
+                }
+              }}
               onMount={(editor) => { editorRef.current = editor; }}
               theme="vs-dark"
               options={{

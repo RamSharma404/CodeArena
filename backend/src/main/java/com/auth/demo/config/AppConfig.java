@@ -31,6 +31,9 @@ public class AppConfig {
         return new BCryptPasswordEncoder();
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.auth.demo.security.OAuth2SuccessHandler oAuth2SuccessHandler;
+
     @Bean
     @Order(1)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -42,6 +45,7 @@ public class AppConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/oauth2/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/problems/**").permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
@@ -50,6 +54,9 @@ public class AppConfig {
                                 "/v3/api-docs"
                         ).permitAll()
                         .anyRequest().permitAll()
+                )
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oAuth2SuccessHandler)
                 );
         return http.build();
     }
