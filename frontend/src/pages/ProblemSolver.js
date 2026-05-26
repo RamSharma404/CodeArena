@@ -99,6 +99,7 @@ export default function ProblemSolver() {
       }
     };
     fetchTemplate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [problem, language]);
 
   // Code is saved to local storage inside the Editor onChange handler to prevent race conditions when switching languages

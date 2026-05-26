@@ -46,12 +46,6 @@ export default function Problems() {
     }
   };
 
-  const isAdmin = user?.role === 'ADMIN';
-
-  const handleAddQuestion = () => {
-    navigate('/add-question');
-  };
-
   const getStatusIcon = (status) => {
     if (status === 'SOLVED') {
       return (

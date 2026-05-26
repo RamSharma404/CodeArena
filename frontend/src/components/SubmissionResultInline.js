@@ -6,7 +6,6 @@ export default function SubmissionResultInline({ submissionId, problem }) {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [polling, setPolling] = useState(false);
 
   // AI Review
   const [reviewing, setReviewing] = useState(false);
@@ -33,7 +32,6 @@ export default function SubmissionResultInline({ submissionId, problem }) {
       setResult(res.data);
 
       if (res.data.status === 'PENDING' || res.data.status === 'RUNNING') {
-        setPolling(true);
         pollResult();
       } else if (res.data.status === 'ACCEPTED') {
         fetchDistribution();
@@ -60,13 +58,12 @@ export default function SubmissionResultInline({ submissionId, problem }) {
         if (res.data.status === 'PENDING' || res.data.status === 'RUNNING') {
           setTimeout(poll, 2000);
         } else {
-          setPolling(false);
           if (res.data.status === 'ACCEPTED') {
             fetchDistribution();
           }
         }
       } catch {
-        setPolling(false);
+        // Stop polling on error
       }
     };
     setTimeout(poll, 2000);
