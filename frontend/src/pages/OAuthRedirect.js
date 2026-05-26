@@ -20,15 +20,12 @@ export default function OAuthRedirect() {
         const payload = JSON.parse(decodedJson);
         
         // Pass to our AuthContext login function
-        // AuthContext expects an object with token and user object
+        // AuthContext expects an object with username, email, role
         login({
-          token: token,
-          user: {
-            id: payload.userId,
-            email: payload.sub,
-            username: payload.username,
-            role: payload.role
-          }
+          id: payload.userId,
+          email: payload.sub,
+          username: payload.username,
+          role: payload.role
         });
         
         navigate('/problems');
