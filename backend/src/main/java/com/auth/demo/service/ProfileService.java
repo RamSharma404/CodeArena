@@ -1,6 +1,7 @@
 package com.auth.demo.service;
 
 import com.auth.demo.dto.ProfileStatsDto;
+import com.auth.demo.dto.UserProfileUpdateDto;
 import com.auth.demo.model.Problem;
 import com.auth.demo.model.Submission;
 import com.auth.demo.model.User;
@@ -40,6 +41,9 @@ public class ProfileService {
         ProfileStatsDto dto = new ProfileStatsDto();
         dto.setUsername(user.getUsername());
         dto.setEmail(user.getEmail());
+        dto.setName(user.getName());
+        dto.setBio(user.getBio());
+        dto.setPhotoUrl(user.getPhotoUrl());
         dto.setAvatarUrl("https://api.dicebear.com/7.x/avataaars/svg?seed=" + user.getUsername());
 
         // Overall Submission Stats
@@ -114,5 +118,16 @@ public class ProfileService {
         dto.setRecentSubmissions(recent);
 
         return dto;
+    }
+
+    public void updateUserProfile(Long userId, UserProfileUpdateDto dto) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (dto.getName() != null) user.setName(dto.getName());
+        if (dto.getBio() != null) user.setBio(dto.getBio());
+        if (dto.getPhotoUrl() != null) user.setPhotoUrl(dto.getPhotoUrl());
+
+        userRepository.save(user);
     }
 }

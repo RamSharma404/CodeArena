@@ -1,6 +1,7 @@
 package com.auth.demo.controller;
 
 import com.auth.demo.dto.ProfileStatsDto;
+import com.auth.demo.dto.UserProfileUpdateDto;
 import com.auth.demo.model.User;
 import com.auth.demo.security.RoleGuard;
 import com.auth.demo.service.ProfileService;
@@ -27,6 +28,17 @@ public class UserController {
             User user = roleGuard.requireAuth(request);
             ProfileStatsDto stats = profileService.getUserProfileStats(user.getId());
             return ResponseEntity.ok(stats);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(401).body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateUserProfile(HttpServletRequest request, @RequestBody UserProfileUpdateDto updateDto) {
+        try {
+            User user = roleGuard.requireAuth(request);
+            profileService.updateUserProfile(user.getId(), updateDto);
+            return ResponseEntity.ok("Profile updated successfully");
         } catch (RuntimeException e) {
             return ResponseEntity.status(401).body(e.getMessage());
         }

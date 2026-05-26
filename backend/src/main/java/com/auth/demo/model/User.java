@@ -25,6 +25,15 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    @Column(length = 100)
+    private String name;
+
+    @Column(length = 500)
+    private String bio;
+
+    @Column(name = "photo_url", columnDefinition = "TEXT")
+    private String photoUrl;
+
     @Column(name = "is_verified")
     private Boolean isVerified = false;
 

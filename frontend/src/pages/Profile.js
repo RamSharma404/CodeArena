@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import API from '../api/axios';
 import './Profile.css';
@@ -7,12 +7,35 @@ export default function Profile() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  // Edit Profile States
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', bio: '', photoUrl: '' });
+  const [isSaving, setIsSaving] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoPreview(reader.result);
+      setEditForm(prev => ({ ...prev, photoUrl: reader.result }));
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const res = await API.get('/api/users/profile');
         setStats(res.data);
+        setEditForm({
+          name: res.data.name || '',
+          bio: res.data.bio || '',
+          photoUrl: res.data.photoUrl || ''
+        });
       } catch (err) {
         setError('Failed to load profile statistics');
       } finally {
@@ -21,6 +44,21 @@ export default function Profile() {
     };
     fetchStats();
   }, []);
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      await API.put('/api/users/profile', editForm);
+      // Optimistic update
+      setStats({ ...stats, ...editForm });
+      setIsEditing(false);
+    } catch (err) {
+      alert('Failed to save profile updates.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -55,12 +93,78 @@ export default function Profile() {
         <div className="profile-sidebar">
           
           <div className="profile-card user-info-card">
-            <div className="profile-avatar-large">
-              {stats.username.charAt(0).toUpperCase()}
-            </div>
-            <h1 className="profile-username">{stats.username}</h1>
+            {stats.photoUrl || stats.avatarUrl ? (
+              <img 
+                src={stats.photoUrl || stats.avatarUrl} 
+                alt={stats.username} 
+                className="profile-avatar-large" 
+                style={{ objectFit: 'cover' }}
+              />
+            ) : (
+              <div className="profile-avatar-large">
+                {stats.username.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <h1 className="profile-username">{stats.name || stats.username}</h1>
+            {stats.name && <p className="profile-username-tag">@{stats.username}</p>}
             <p className="profile-email">{stats.email}</p>
+            {stats.bio && <p className="profile-bio">{stats.bio}</p>}
             <div className="profile-rank-badge">Rank: Novice</div>
+            <button className="btn btn-secondary btn-edit-profile" onClick={() => { setIsEditing(!isEditing); setPhotoPreview(null); }}>
+              {isEditing ? 'Cancel' : 'Edit Profile'}
+            </button>
+
+            {isEditing && (
+              <form onSubmit={handleEditSubmit} className="inline-edit-form">
+                <div className="form-group">
+                  <label>Display Name</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="e.g. Jane Doe"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Profile Photo</label>
+                  <div className="photo-upload-area" onClick={() => fileInputRef.current.click()}>
+                    {photoPreview ? (
+                      <img src={photoPreview} alt="Preview" className="photo-preview" />
+                    ) : (
+                      <div className="photo-upload-placeholder">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                          <polyline points="17 8 12 3 7 8"/>
+                          <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <span>Click to upload photo</span>
+                      </div>
+                    )}
+                    <input 
+                      type="file" 
+                      ref={fileInputRef}
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }}
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Bio</label>
+                  <textarea 
+                    className="form-input" 
+                    rows="3" 
+                    placeholder="Tell us about yourself..."
+                    value={editForm.bio}
+                    onChange={(e) => setEditForm({...editForm, bio: e.target.value})}
+                  ></textarea>
+                </div>
+                <button type="submit" className="btn btn-primary btn-save-profile" disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </form>
+            )}
           </div>
 
           <div className="profile-card stat-highlight-card">
@@ -91,14 +195,24 @@ export default function Profile() {
           
           <div className="stats-grid">
             <div className="profile-card stat-box">
-              <div className="stat-icon">📈</div>
+              <div className="stat-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{color: 'var(--accent)'}}>
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+              </div>
               <div className="stat-info">
                 <span className="stat-label">Total Submissions</span>
                 <span className="stat-value">{stats.totalSubmissions}</span>
               </div>
             </div>
             <div className="profile-card stat-box">
-              <div className="stat-icon">🎯</div>
+              <div className="stat-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{color: 'var(--success)'}}>
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <circle cx="12" cy="12" r="6"></circle>
+                  <circle cx="12" cy="12" r="2"></circle>
+                </svg>
+              </div>
               <div className="stat-info">
                 <span className="stat-label">Acceptance Rate</span>
                 <span className="stat-value">{stats.acceptanceRate}%</span>
@@ -186,6 +300,7 @@ export default function Profile() {
 
         </div>
       </div>
+
     </div>
   );
 }

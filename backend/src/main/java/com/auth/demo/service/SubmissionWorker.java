@@ -4,12 +4,68 @@ import com.auth.demo.model.*;
 import com.auth.demo.repository.*;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.CompletableFuture;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.stream.Collectors;
+import java.util.Collections;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Service
 public class SubmissionWorker {
+
+    // Global rate limiter to ensure we never exceed 4 concurrent API calls across all users
+    public static final java.util.concurrent.Semaphore API_RATE_LIMITER = new java.util.concurrent.Semaphore(4);
+
+    // Map of Problem ID to Custom Test Case Range Groupings (1-indexed, inclusive)
+    private static final java.util.Map<Long, int[][]> PROBLEM_CUSTOM_BATCHES = new java.util.HashMap<>();
+    static {
+        // Problem 6 (Zigzag) custom ranges
+        PROBLEM_CUSTOM_BATCHES.put(6L, new int[][] {
+            {1, 53}, {54, 64}, {65, 80}, {81, 98}, {99, 111},
+            {112, 127}, {128, 143}, {144, 161}, {162, 180}, {181, 198},
+            {199, 213}, {214, 238}, {239, 254}, {255, 274}, {275, 293},
+            {294, 296}
+        });
+        // Problem 3 (Longest Substring) custom ranges
+        PROBLEM_CUSTOM_BATCHES.put(3L, new int[][] {
+            {1, 240}, {241, 480}, {481, 720}, {721, 961}
+        });
+        
+        // Problem 1 (Two Sum) custom ranges
+        PROBLEM_CUSTOM_BATCHES.put(1L, new int[][] {
+            {1, 10}, {11, 20}, {21, 30}, {31, 41}
+        });
+        
+        // Problem 7 (String to Integer Atoi) custom ranges
+        PROBLEM_CUSTOM_BATCHES.put(7L, new int[][] {
+            {1, 68}, {69, 136}, {137, 204}, {205, 272}
+        });
+        
+        // Problem 8 (Find Index of First Occurrence) custom ranges
+        PROBLEM_CUSTOM_BATCHES.put(8L, new int[][] {
+            {1, 20}, {21, 40}, {41, 60}, {61, 79}
+        });
+        
+        // Problem 9 (Divide Two Integers) custom ranges
+        PROBLEM_CUSTOM_BATCHES.put(9L, new int[][] {
+            {1, 27}, {28, 54}, {55, 81}, {82, 107}
+        });
+        
+        // Problem 10 (Count and Say) custom ranges
+        PROBLEM_CUSTOM_BATCHES.put(10L, new int[][] {
+            {1, 8}, {9, 16}, {17, 24}, {25, 30}
+        });
+        
+        // Problem 4 (Median of Two Sorted Arrays) custom ranges
+        PROBLEM_CUSTOM_BATCHES.put(4L, new int[][] {
+            {1, 74}, {75, 148}, {149, 222}, {223, 293}
+        });
+    }
 
     private final SubmissionQueueService    queueService;
     private final SubmissionRepository      submissionRepository;
@@ -160,28 +216,38 @@ public class SubmissionWorker {
             // Split test cases into chunks based on BATCH_SIZE and MAX_PAYLOAD_SIZE (50KB)
             // to avoid API output truncation and "Input exceeds maximum size of 100KB" errors.
             java.util.List<java.util.List<TestCase>> batches = new java.util.ArrayList<>();
-            java.util.List<TestCase> currentBatch = new java.util.ArrayList<>();
-            int currentBatchBytes = 0;
-            int BATCH_SIZE = 300;
-            for (TestCase tc : testCases) {
-                String in = tc.getInput() != null ? tc.getInput() : "";
-                int bytes = in.length() + TC_SENTINEL.length() + 2;
-                if (currentBatch.size() >= BATCH_SIZE || currentBatchBytes + bytes > 75000) {
-                    if (!currentBatch.isEmpty()) {
-                        batches.add(currentBatch);
-                        currentBatch = new java.util.ArrayList<>();
-                        currentBatchBytes = 0;
+            
+            int[][] customRanges = PROBLEM_CUSTOM_BATCHES.get(submission.getProblemId());
+            if (customRanges != null) {
+                for (int[] range : customRanges) {
+                    int startIdx = range[0] - 1;
+                    int endIdx = range[1] - 1;
+                    java.util.List<TestCase> batch = new java.util.ArrayList<>();
+                    for (int i = startIdx; i <= endIdx && i < testCases.size(); i++) {
+                        batch.add(testCases.get(i));
+                    }
+                    if (!batch.isEmpty()) {
+                        batches.add(batch);
                     }
                 }
-                currentBatch.add(tc);
-                currentBatchBytes += bytes;
-            }
-            if (!currentBatch.isEmpty()) {
-                batches.add(currentBatch);
+                System.out.println("[Worker] Splitting into " + batches.size() + " batches using custom range strategy");
+            } else {
+                java.util.List<TestCase> currentBatch = new java.util.ArrayList<>();
+                int BATCH_SIZE = 300;
+                for (TestCase tc : testCases) {
+                    if (currentBatch.size() >= BATCH_SIZE) {
+                        batches.add(currentBatch);
+                        currentBatch = new java.util.ArrayList<>();
+                    }
+                    currentBatch.add(tc);
+                }
+                if (!currentBatch.isEmpty()) {
+                    batches.add(currentBatch);
+                }
+                System.out.println("[Worker] Splitting into " + batches.size() + " batches using default batch size strategy of " + BATCH_SIZE);
             }
 
             int totalBatches = batches.size();
-            System.out.println("[Worker] Splitting into " + totalBatches + " batches (max size 70KB, max count " + BATCH_SIZE + ")");
 
             java.util.concurrent.atomic.AtomicInteger passedCounter = new java.util.concurrent.atomic.AtomicInteger(0);
             java.util.concurrent.atomic.AtomicReference<String> finalStatusRef = new java.util.concurrent.atomic.AtomicReference<>("ACCEPTED");
@@ -213,7 +279,18 @@ public class SubmissionWorker {
                         batchedInput.append(TC_SENTINEL).append("\n");
                     }
 
-                    Judge0Service.PistonResult result = judge0Service.executeCode(finalExecCode, finalLang, batchedInput.toString());
+                    Judge0Service.PistonResult result;
+                    try {
+                        API_RATE_LIMITER.acquire();
+                        try {
+                            result = judge0Service.executeCode(finalExecCode, finalLang, batchedInput.toString());
+                        } finally {
+                            API_RATE_LIMITER.release();
+                        }
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
 
                     if (result.getRun() != null) {
                         String rawErr = result.getRun().getStderr() != null ? result.getRun().getStderr() : "";

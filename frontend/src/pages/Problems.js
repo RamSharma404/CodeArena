@@ -85,19 +85,7 @@ export default function Problems() {
         </div>
 
         <div className="problems-filters">
-          {isAdmin && (
-            <button 
-              className="btn btn-primary add-question-btn"
-              onClick={handleAddQuestion}
-              id="add-question-btn"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Add Question
-            </button>
-          )}
+
           <form onSubmit={handleSearch} className="problems-search-form">
             <div className="search-input-wrapper">
               <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -107,7 +95,7 @@ export default function Problems() {
               <input
                 type="text"
                 className="form-input search-input"
-                placeholder="Search problems..."
+                placeholder="Search questions"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 id="search-problems"

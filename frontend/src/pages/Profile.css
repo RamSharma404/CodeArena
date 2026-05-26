@@ -74,13 +74,28 @@
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.profile-username-tag {
+  font-size: 0.9rem;
+  color: var(--text-muted);
   margin-bottom: 4px;
 }
 
 .profile-email {
   font-size: 0.9rem;
   color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.profile-bio {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
   margin-bottom: 16px;
+  font-style: italic;
+  max-width: 90%;
 }
 
 .profile-rank-badge {
@@ -92,7 +107,14 @@
   background: rgba(168, 85, 247, 0.15);
   color: #c084fc;
   border: 1px solid rgba(168, 85, 247, 0.3);
+  margin-bottom: 16px;
 }
+
+.btn-edit-profile {
+  width: 100%;
+  margin-top: 8px;
+}
+
 
 /* ── Circular Progress ── */
 .stat-highlight-card {
@@ -349,3 +371,82 @@
   font-style: italic;
   font-size: 0.9rem;
 }
+
+/* ── Inline Edit Form ── */
+.inline-edit-form {
+  width: 100%;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    max-height: 600px;
+    transform: translateY(0);
+  }
+}
+
+.inline-edit-form .form-group {
+  text-align: left;
+}
+
+.inline-edit-form .form-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.photo-upload-area {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-upload-area:hover {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.photo-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.photo-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--accent);
+}
+
+.btn-save-profile {
+  width: 100%;
+  margin-top: 4px;
+}
+
+

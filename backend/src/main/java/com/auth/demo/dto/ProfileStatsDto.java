@@ -6,7 +6,11 @@ import java.util.Map;
 public class ProfileStatsDto {
     private String username;
     private String email;
-    private String avatarUrl; // currently we don't have avatars, but we can return default
+    private String name;
+    private String bio;
+    private String avatarUrl; // fallback or original
+    private String photoUrl; // user-provided photo
+    
     private int totalSubmissions;
     private int acceptedSubmissions;
     private double acceptanceRate;
@@ -36,8 +40,14 @@ public class ProfileStatsDto {
     public void setUsername(String username) { this.username = username; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getBio() { return bio; }
+    public void setBio(String bio) { this.bio = bio; }
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+    public String getPhotoUrl() { return photoUrl; }
+    public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
     public int getTotalSubmissions() { return totalSubmissions; }
     public void setTotalSubmissions(int totalSubmissions) { this.totalSubmissions = totalSubmissions; }
     public int getAcceptedSubmissions() { return acceptedSubmissions; }

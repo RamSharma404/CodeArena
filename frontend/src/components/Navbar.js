@@ -23,11 +23,16 @@ export default function Navbar() {
         {/* Logo */}
         <Link to="/" className="navbar-brand" id="navbar-logo">
           <div className="navbar-logo-icon">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <rect x="2" y="2" width="24" height="24" rx="6" fill="url(#logo-grad)" />
-              <path d="M9 14l3 3 7-7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="url(#logo-grad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"></polygon>
+              {/* The 'C' - distinct at the top, touching A at the bottom */}
+              <path d="M 11 8 A 4 4 0 0 0 11 16" />
+              {/* The 'A' - starting exactly at C's bottom tip */}
+              <path d="M 11 16 L 14 8 L 17 16" />
+              {/* The crossbar of the A */}
+              <line x1="12.1" y1="13" x2="15.9" y2="13" />
               <defs>
-                <linearGradient id="logo-grad" x1="2" y1="2" x2="26" y2="26">
+                <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop stopColor="#6366f1"/>
                   <stop offset="1" stopColor="#a855f7"/>
                 </linearGradient>
