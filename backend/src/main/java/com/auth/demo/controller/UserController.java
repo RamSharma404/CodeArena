@@ -40,7 +40,10 @@ public class UserController {
             profileService.updateUserProfile(user.getId(), updateDto);
             return ResponseEntity.ok("Profile updated successfully");
         } catch (RuntimeException e) {
-            return ResponseEntity.status(401).body(e.getMessage());
+            if (e.getMessage() != null && (e.getMessage().contains("Token") || e.getMessage().contains("Access") || e.getMessage().contains("Auth") || e.getMessage().contains("No token") || e.getMessage().contains("Invalid"))) {
+                return ResponseEntity.status(401).body(e.getMessage());
+            }
+            return ResponseEntity.status(400).body(e.getMessage());
         }
     }
 }

@@ -34,7 +34,7 @@ public class User {
     @Column(length = 500)
     private String bio;
 
-    @Column(name = "photo_url", columnDefinition = "TEXT")
+    @Column(name = "photo_url", columnDefinition = "LONGTEXT")
     private String photoUrl;
 
     @Column(name = "is_verified")
