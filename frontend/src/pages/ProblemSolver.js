@@ -576,6 +576,8 @@ export default function ProblemSolver() {
                 wordWrap: 'on',
                 automaticLayout: true,
                 tabSize: 4,
+                insertSpaces: true,
+                formatOnPaste: true,
                 renderLineHighlight: 'gutter',
                 lineNumbersMinChars: 3,
               }}
