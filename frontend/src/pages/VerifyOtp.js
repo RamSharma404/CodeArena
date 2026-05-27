@@ -20,7 +20,10 @@ export default function VerifyOtp() {
     setSuccess('');
     setLoading(true);
     try {
-      await API.post('/api/auth/verify-otp', { email, otp });
+      const res = await API.post('/api/auth/verify-otp', { email, otp });
+      if (res.data.token) {
+        localStorage.setItem('jwt_token', res.data.token);
+      }
       setSuccess('Email verified successfully! Redirecting to login...');
       setTimeout(() => navigate('/login'), 1500);
     } catch (err) {

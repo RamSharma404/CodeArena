@@ -160,20 +160,27 @@ public class AuthController {
         }
     }
 
-    // GET /api/auth/me — check who is logged in (reads JWT from cookie)
+    // GET /api/auth/me — check who is logged in (reads JWT from cookie or Authorization header)
     @GetMapping("/me")
     public ResponseEntity<?> me(HttpServletRequest request) {
         try {
-            if (request.getCookies() == null) {
-                return ResponseEntity.status(401)
-                        .body(new AuthDto.ErrorResponse("Not authenticated", 401));
+            String token = null;
+
+            // 1. Try cookie first
+            if (request.getCookies() != null) {
+                for (Cookie cookie : request.getCookies()) {
+                    if ("jwt".equals(cookie.getName())) {
+                        token = cookie.getValue();
+                        break;
+                    }
+                }
             }
 
-            String token = null;
-            for (Cookie cookie : request.getCookies()) {
-                if ("jwt".equals(cookie.getName())) {
-                    token = cookie.getValue();
-                    break;
+            // 2. Fallback: Authorization header (for cross-origin cookie issues)
+            if (token == null) {
+                String authHeader = request.getHeader("Authorization");
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    token = authHeader.substring(7);
                 }
             }
 
@@ -188,7 +195,7 @@ public class AuthController {
 
             return ResponseEntity.ok(new AuthDto.AuthResponse(
                     "Authenticated",
-                    user.getUsername(), user.getEmail(), user.getRole()));
+                    user.getUsername(), user.getEmail(), user.getRole(), null));
         } catch (Exception e) {
             return ResponseEntity.status(401)
                     .body(new AuthDto.ErrorResponse("Not authenticated", 401));

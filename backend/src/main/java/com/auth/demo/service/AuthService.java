@@ -115,7 +115,7 @@ public class AuthService {
 
         AuthDto.AuthResponse response = new AuthDto.AuthResponse(
                 "Email verified successfully. Welcome!",
-                user.getUsername(), user.getEmail(), user.getRole());
+                user.getUsername(), user.getEmail(), user.getRole(), token);
         return new LoginResult(token, response);
     }
 
@@ -164,7 +164,7 @@ public class AuthService {
 
         AuthDto.AuthResponse response = new AuthDto.AuthResponse(
                 "Login successful",
-                user.getUsername(), user.getEmail(), user.getRole());
+                user.getUsername(), user.getEmail(), user.getRole(), token);
         return new LoginResult(token, response);
     }
 

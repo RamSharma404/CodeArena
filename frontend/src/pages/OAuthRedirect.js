@@ -13,6 +13,9 @@ export default function OAuthRedirect() {
     const token = params.get('token');
 
     if (token) {
+      // Store JWT in localStorage as fallback for cross-origin cookie issues
+      localStorage.setItem('jwt_token', token);
+
       // Decode JWT payload to get user info (basic decode without verification)
       try {
         const payloadBase64 = token.split('.')[1];
@@ -28,7 +31,7 @@ export default function OAuthRedirect() {
           role: payload.role
         });
         
-        navigate('/problems');
+        navigate('/problems', { replace: true });
       } catch (err) {
         console.error("Failed to parse OAuth JWT", err);
         navigate('/login?error=Invalid+OAuth+Token');

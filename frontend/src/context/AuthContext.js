@@ -43,6 +43,7 @@ export function AuthProvider({ children }) {
     }
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('jwt_token');
   };
 
   const isAuthenticated = !!user;

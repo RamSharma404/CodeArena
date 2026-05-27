@@ -24,6 +24,9 @@ export default function Login() {
     setLoading(true);
     try {
       const res = await API.post('/api/auth/login', { email, password });
+      if (res.data.token) {
+        localStorage.setItem('jwt_token', res.data.token);
+      }
       login(res.data);
       navigate('/problems');
     } catch (err) {
