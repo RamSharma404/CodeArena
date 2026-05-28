@@ -388,9 +388,9 @@ class Main {
         String l2 = sc.nextLine().trim();
         l1 = l1.replace("[", "").replace("]", "").replace(",", " ").trim();
         l2 = l2.replace("[", "").replace("]", "").replace(",", " ").trim();
-        int[] nums1 = l1.isEmpty() ? new int[0] : Arrays.stream(l1.split("\\s+"))
+        int[] nums1 = l1.isEmpty() ? new int[0] : Arrays.stream(l1.split(" +"))
                 .mapToInt(Integer::parseInt).toArray();
-        int[] nums2 = l2.isEmpty() ? new int[0] : Arrays.stream(l2.split("\\s+"))
+        int[] nums2 = l2.isEmpty() ? new int[0] : Arrays.stream(l2.split(" +"))
                 .mapToInt(Integer::parseInt).toArray();
         Solution sol = new Solution();
         double result = sol.findMedianSortedArrays(nums1, nums2);

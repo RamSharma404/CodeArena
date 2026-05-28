@@ -219,12 +219,17 @@ public class Judge0Service {
         while (m.find()) {
             int absLine = Integer.parseInt(m.group(1));
             int userLine = absLine - userStart + 1;
-            if (userLine < 1) userLine = 1;
-            if ("java".equalsIgnoreCase(language)) {
-                m.appendReplacement(sb, "Line " + userLine + ":");
+            String replacement;
+            if (userLine < 1) {
+                replacement = "[Driver Template Error]:";
             } else {
-                m.appendReplacement(sb, "line " + userLine);
+                if ("java".equalsIgnoreCase(language)) {
+                    replacement = "Line " + userLine + ":";
+                } else {
+                    replacement = "line " + userLine;
+                }
             }
+            m.appendReplacement(sb, replacement);
         }
         m.appendTail(sb);
         return sb.toString();
