@@ -131,8 +131,9 @@ public class SubmissionService {
 
             String fullCode = userCode;
             if (template.isPresent()) {
+                String sanitizedUserCode = wrapUserCodeWithMarkers(sanitizeUserCode(userCode, request.getLanguage()), request.getLanguage());
                 fullCode = template.get().getDriverCode()
-                        .replace("{{USER_CODE}}", sanitizeUserCode(userCode, request.getLanguage()));
+                        .replace("{{USER_CODE}}", sanitizedUserCode);
             }
 
             // Get visible test cases
@@ -337,6 +338,16 @@ public class SubmissionService {
         trimmed = trimmed.replaceAll("(?m)^\\s*package\\s+[\\w.]+;\\s*$", "").trim();
 
         return trimmed;
+    }
+
+    public static String wrapUserCodeWithMarkers(String userCode, String language) {
+        if (userCode == null) return "";
+        String lang = language.toLowerCase();
+        if (lang.equals("python")) {
+            return "\n# === USER_CODE_START ===\n" + userCode + "\n# === USER_CODE_END ===\n";
+        } else {
+            return "\n// === USER_CODE_START ===\n" + userCode + "\n// === USER_CODE_END ===\n";
+        }
     }
 
     // ─── GET SUBMISSIONS LIST ─────────────────────────────────

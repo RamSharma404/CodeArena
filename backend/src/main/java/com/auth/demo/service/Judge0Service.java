@@ -176,22 +176,58 @@ public class Judge0Service {
                 String err = new String(p.getErrorStream().readAllBytes());
                 // Clean up absolute paths from javac output
                 err = err.replace(sourceFile.getAbsolutePath(), "Main.java");
-                return err;
+                return mapErrorLinesToUserCode(err, code, language);
             } else if ("python".equals(language)) {
                 java.io.File sourceFile = new java.io.File(dir, "solution.py");
                 java.nio.file.Files.writeString(sourceFile.toPath(), code);
-                Process p = new ProcessBuilder("python", "-m", "py_compile", "solution.py")
+                String pythonCmd = System.getProperty("os.name").toLowerCase().contains("win") ? "python" : "python3";
+                Process p = new ProcessBuilder(pythonCmd, "-m", "py_compile", "solution.py")
                         .directory(dir)
                         .start();
                 p.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
                 String err = new String(p.getErrorStream().readAllBytes());
                 err = err.replace(sourceFile.getAbsolutePath(), "solution.py");
-                return err;
+                return mapErrorLinesToUserCode(err, code, language);
             }
         } catch (Exception e) {
             System.err.println("[Judge0Service] Local syntax check failed: " + e.getMessage());
         }
         return null;
+    }
+
+    private String mapErrorLinesToUserCode(String errorOutput, String fullCode, String language) {
+        if (errorOutput == null || errorOutput.isEmpty()) return errorOutput;
+        String[] lines = fullCode.split("\n");
+        int userStart = -1;
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i].contains("=== USER_CODE_START ===")) {
+                userStart = i + 1; // 1-indexed, next line is start of user code
+                break;
+            }
+        }
+        if (userStart == -1) return errorOutput; // Markers not found
+
+        java.util.regex.Pattern p;
+        if ("java".equalsIgnoreCase(language)) {
+            p = java.util.regex.Pattern.compile("Main\\.java:(\\d+):");
+        } else {
+            p = java.util.regex.Pattern.compile("line (\\d+)");
+        }
+        
+        java.util.regex.Matcher m = p.matcher(errorOutput);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            int absLine = Integer.parseInt(m.group(1));
+            int userLine = absLine - userStart + 1;
+            if (userLine < 1) userLine = 1;
+            if ("java".equalsIgnoreCase(language)) {
+                m.appendReplacement(sb, "Line " + userLine + ":");
+            } else {
+                m.appendReplacement(sb, "line " + userLine);
+            }
+        }
+        m.appendTail(sb);
+        return sb.toString();
     }
 
     @Data

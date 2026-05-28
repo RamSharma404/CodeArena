@@ -190,9 +190,11 @@ public class SubmissionWorker {
             String execCode = template.isPresent()
                     ? template.get().getDriverCode()
                         .replace("{{USER_CODE}}",
-                                SubmissionService.sanitizeUserCode(
-                                        submission.getCode(),
-                                        submission.getLanguage()))
+                                SubmissionService.wrapUserCodeWithMarkers(
+                                    SubmissionService.sanitizeUserCode(
+                                            submission.getCode(),
+                                            submission.getLanguage()),
+                                    submission.getLanguage()))
                     : submission.getCode();
 
             String lang = submission.getLanguage().toLowerCase();
