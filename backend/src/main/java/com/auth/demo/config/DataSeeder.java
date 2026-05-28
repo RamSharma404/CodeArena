@@ -362,7 +362,9 @@ __main__();
     // Output: A decimal like "2.0" or "2.5"
     // ═══════════════════════════════════════════════════════════
     private void seedMedianArrays() {
-        Problem p = problemRepository.findBySlug("median-of-two-sorted-arrays").orElse(null);
+        Problem p = problemRepository.findAll().stream()
+                .filter(prob -> prob.getTitle().toLowerCase().contains("median"))
+                .findFirst().orElse(null);
         if (p == null) return;
         Long pid = p.getId();
 
