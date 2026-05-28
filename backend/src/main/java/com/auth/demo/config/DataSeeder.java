@@ -382,9 +382,13 @@ import java.util.*;
 class Main {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
-        int[] nums1 = Arrays.stream(sc.nextLine().trim().split(" "))
+        String l1 = sc.nextLine().trim();
+        String l2 = sc.nextLine().trim();
+        l1 = l1.replaceAll("\\[|\\]", "").trim();
+        l2 = l2.replaceAll("\\[|\\]", "").trim();
+        int[] nums1 = l1.isEmpty() ? new int[0] : Arrays.stream(l1.split("[,\\s]+"))
                 .mapToInt(Integer::parseInt).toArray();
-        int[] nums2 = Arrays.stream(sc.nextLine().trim().split(" "))
+        int[] nums2 = l2.isEmpty() ? new int[0] : Arrays.stream(l2.split("[,\\s]+"))
                 .mapToInt(Integer::parseInt).toArray();
         Solution sol = new Solution();
         double result = sol.findMedianSortedArrays(nums1, nums2);
@@ -407,10 +411,14 @@ def findMedianSortedArrays(nums1, nums2):
     pass
 """,
 """
-import sys
+import sys, re
 data = sys.stdin.read().splitlines()
-nums1 = list(map(int, data[0].split()))
-nums2 = list(map(int, data[1].split()))
+def parse_array(line):
+    line = re.sub(r'\\[|\\]', '', line).strip()
+    if not line: return []
+    return list(map(int, re.split(r'[,\\s]+', line)))
+nums1 = parse_array(data[0])
+nums2 = parse_array(data[1])
 
 {{USER_CODE}}
 
@@ -440,11 +448,16 @@ int main() {
     string l1, l2;
     getline(cin, l1);
     getline(cin, l2);
-    istringstream i1(l1), i2(l2);
-    vector<int> n1, n2;
-    int x;
-    while (i1 >> x) n1.push_back(x);
-    while (i2 >> x) n2.push_back(x);
+    auto parse = [](string s) {
+        vector<int> res;
+        for (char &c : s) if (c == '[' || c == ']' || c == ',') c = ' ';
+        istringstream iss(s);
+        int x;
+        while (iss >> x) res.push_back(x);
+        return res;
+    };
+    vector<int> n1 = parse(l1);
+    vector<int> n2 = parse(l2);
     double r = findMedianSortedArrays(n1, n2);
     if (r == (long long)r) cout << fixed << setprecision(1) << r << endl;
     else cout << r << endl;
@@ -466,8 +479,13 @@ var findMedianSortedArrays = function(nums1, nums2) {
 const _inp = require('fs').readFileSync(0, 'utf-8');
 function __main__() {
     const lines = _inp.trim().split('\\n');
-    const nums1 = lines[0].trim().split(' ').map(Number);
-    const nums2 = lines[1].trim().split(' ').map(Number);
+    const parse = (line) => {
+        line = line.replace(/\\[|\\]/g, '').trim();
+        if (!line) return [];
+        return line.split(/[,\\s]+/).map(Number);
+    };
+    const nums1 = parse(lines[0]);
+    const nums2 = parse(lines[1]);
     const r = findMedianSortedArrays(nums1, nums2);
     console.log(Number.isInteger(r) ? r.toFixed(1) : r);
 }

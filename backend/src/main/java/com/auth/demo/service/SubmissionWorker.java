@@ -127,7 +127,7 @@ public class SubmissionWorker {
         String submissionIdStr = queueService.popFromQueue();
 
         if (submissionIdStr == null) {
-            Thread.sleep(500);
+            Thread.sleep(12000); // 12 seconds keeps 2 workers under 430k requests/month
             return;
         }
 

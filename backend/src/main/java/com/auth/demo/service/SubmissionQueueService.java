@@ -25,10 +25,10 @@ public class SubmissionQueueService {
     }
 
     // Pop submissionId from right of queue
-    // Blocks for up to 10 seconds waiting for a job
+    // Uses standard non-blocking pop because Upstash kills long-lived blocking TCP sockets
     public String popFromQueue() {
         return redisTemplate.opsForList()
-                .rightPop(QUEUE_KEY, 10, java.util.concurrent.TimeUnit.SECONDS);
+                .rightPop(QUEUE_KEY);
     }
 
     // Get queue length
