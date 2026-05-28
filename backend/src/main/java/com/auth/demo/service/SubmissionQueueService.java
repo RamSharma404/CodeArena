@@ -28,7 +28,7 @@ public class SubmissionQueueService {
     // Blocks for up to 10 seconds waiting for a job
     public String popFromQueue() {
         return redisTemplate.opsForList()
-                .rightPop(QUEUE_KEY);
+                .rightPop(QUEUE_KEY, 10, java.util.concurrent.TimeUnit.SECONDS);
     }
 
     // Get queue length

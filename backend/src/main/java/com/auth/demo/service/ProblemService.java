@@ -43,14 +43,18 @@ public class ProblemService {
 
         List<Problem> problems = problemRepository.findByFilters(diffEnum, search);
 
-        return problems.stream().map(problem -> {
-            String solvedStatus = null;
-            if (userId != null) {
-                Optional<UserProblem> up = userProblemRepository
-                        .findByIdUserIdAndIdProblemId(userId, problem.getId());
-                if (up.isPresent())
-                    solvedStatus = up.get().getStatus().name();
+        // Fix N+1 query issue: Fetch all user progress in 1 query instead of 1 query per problem
+        java.util.Map<Long, String> solvedStatusMap = new java.util.HashMap<>();
+        if (userId != null) {
+            List<UserProblem> userProblems = userProblemRepository.findByIdUserId(userId);
+            for (UserProblem up : userProblems) {
+                solvedStatusMap.put(up.getId().getProblemId(), up.getStatus().name());
             }
+        }
+
+        return problems.stream().map(problem -> {
+            String solvedStatus = solvedStatusMap.get(problem.getId());
+            
             return ProblemDto.ProblemSummary.builder()
                     .id(problem.getId())
                     .title(problem.getTitle())
