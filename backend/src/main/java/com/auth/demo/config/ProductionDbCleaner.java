@@ -18,6 +18,7 @@ public class ProductionDbCleaner implements CommandLineRunner {
         new Thread(() -> {
             System.out.println("Starting automatic production database cleanup in background...");
             try {
+                Thread.sleep(5000);
                 jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
                 
                 // Delete all unwanted problems and their associated records exactly as requested
