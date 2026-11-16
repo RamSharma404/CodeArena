@@ -79,7 +79,7 @@ public class AIReviewService {
 
         // Build request body
         Map<String, Object> body = new HashMap<>();
-        body.put("model", "llama-3.1-8b-instant");  // free model on Groq
+        body.put("model", "llama-3.3-70b-versatile");  // free model on Groq
         body.put("messages", List.of(message));
         body.put("temperature", 0.3);
 
